@@ -22,6 +22,5 @@ class AttrDict(dict):
             self[k] = AttrDict.recursive_convert(self[k])
 
     def __getattr__(self, attr):
-        logging.error(f'no attr named {attr}')
+        logging.error(f"no attr named {attr}")
         logging.error(json.dumps(self, indent=4))
-

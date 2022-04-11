@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
-import pandas as pd
 
-from yapp.AttrDict import AttrDict
+from yapp.core.AttrDict import AttrDict
 
 
 class Inputs(AttrDict):
@@ -64,42 +63,3 @@ class Inputs(AttrDict):
         Expose input attribute using another name
         """
         self.exposed[name] = (source, internal_name)
-
-
-class InputAdapter(ABC):
-    """
-    Abstract Input Adapter
-
-    An input adapter represents a type of input from a specific source
-    """
-
-    @abstractmethod
-    def get(self, key):
-        pass
-
-    def __getattr__(self, key):
-        logging.debug(f'Loading input from {self.__class__.__name__}: "{key}"')
-        return self.get(key)
-
-    def __getitem__(self, key):
-        return self.__getattr__(key)
-
-
-class SQL_Input(InputAdapter):
-    """
-    SQL Input adapter
-
-    An input adapter for SQL databases, input is read into a pandas DataFrame
-    """
-
-    def __init__(self, conn, schema=None, where_clause=None):
-        self.schema       = schema
-        self.conn         = conn
-        self.where_clause = where_clause
-
-    def get(self, table_name):
-        schema       = self.schema+'.' if self.schema else ''
-        where_clause = ' where '+self.where_clause if self.where_clause else ''
-        query        = f"select * from {schema}{table_name}{where_clause}"
-        logging.debug(f'Using query: "{query}"')
-        return pd.read_sql(query, self.conn)
