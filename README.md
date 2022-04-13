@@ -14,6 +14,15 @@ Pipelines are described using yaml files:
  - `pipelines.yml` defines the pipelines [required]
  - `config.yml`		defines a global configuration (e.g. inputs and outputs)
 
+A Pipeline is made up of Jobs.
+A Job represents a step of the pipeline, it takes inputs as parameters and returns a dict of outputs.
+The pipeline.yml file defines the dependencies of every Job in the Pipeline. They are resolved and
+then they are run one at the time (even if it may be possible to run them in parallel, this is a
+willingly design choice).
+
+Pipelines can have hooks to perform specific task before or after each task (such as updating some
+kind of status monitor)
+
 You can run a pipeline using:
 ```yapp PIPELINE_NAME [PATH]```
 
@@ -28,10 +37,10 @@ Search path order: pipeline root > root directory
 ## TODOs
 
 ### Basic features still missing:
- - [ ] yapp cli command
+ - [x] yapp cli command
  - [ ] Finalize yaml files specification
  - [ ] Proper code organization
- - [ ] Package
+ - [x] Package
  - [ ] Working examples
 
 ### Possibly lower priority
