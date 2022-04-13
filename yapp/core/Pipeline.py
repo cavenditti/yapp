@@ -3,7 +3,10 @@ import json
 from datetime import datetime
 import inspect
 
-from yapp.core import Job, Inputs, OutputAdapter, AttrDict
+from .Job import Job
+from .Inputs import Inputs
+from .OutputAdapter import OutputAdapter
+from .AttrDict import AttrDict
 
 
 class Pipeline:
@@ -14,8 +17,8 @@ class Pipeline:
     def __init__(
         self,
         job_list,
-        inputs=None,
-        outputs=None,
+        inputs=Inputs(),
+        outputs=[],
         on_job_start=None,
         on_job_finish=None,
         on_pipeline_start=None,
@@ -129,27 +132,3 @@ class Pipeline:
             self.input.config = AttrDict(config)
 
         self.timed("pipeline", self.name, self._run)
-
-
-"""
-def compose_pipeline(sources: dict, output: OutputAdapter, config, *pipeline_list):
-    '''
-        Composes multiple pipelines into one
-
-        :param sources: input data sources
-        :param outputs: output data destinations
-        :param config: The data types you want to apply to the dataframe
-        :*pipeline_list: The list of pipelines to compose
-        :return: Output of the last pipeline
-    '''
-
-    inputs = Inputs(sources=sources)
-    # TODO allow multiple output adapters
-    outputs = [output]
-
-    last_output = {}
-    for pipeline in pipeline_list:
-        last_output = pipeline.run(inputs | last_output, outputs=outputs, config=config)()
-    return last_output
-
-"""

@@ -1,10 +1,10 @@
 import pandas as pd
 import logging
 
-from yapp.core import InputAdapter, OutputAdapter
+from yapp import InputAdapter, OutputAdapter
 
 
-class SQL_Input(InputAdapter):
+class SqlInput(InputAdapter):
     """
     SQL Input adapter
 
@@ -24,7 +24,7 @@ class SQL_Input(InputAdapter):
         return pd.read_sql(query, self.conn)
 
 
-class SQL_Output(OutputAdapter):
+class SqlOutput(OutputAdapter):
     """
     SQL output adapter
 

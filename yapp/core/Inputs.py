@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 
-from yapp.core.AttrDict import AttrDict
+from .AttrDict import AttrDict
 
 
 class Inputs(AttrDict):
@@ -13,7 +13,7 @@ class Inputs(AttrDict):
         super().__init__(*args, **kwargs)
         self.exposed = {}  # mapping name to source
         for source in sources:
-            self.register(source)
+            self.register(source.__class__.__name__, source)
 
     def __repr__(self):
         return '<yapp inputs>'
@@ -26,7 +26,7 @@ class Inputs(AttrDict):
 
     def __getitem__(self, key):
         try:
-            logging.debug(f'Using input {key}')
+            logging.debug(f'Using input "{key}"')
             # if it's an exposed resource from an adapter return it
             if key in self.exposed:
                 source, name = self.exposed[key]
@@ -56,10 +56,11 @@ class Inputs(AttrDict):
         New input adapter (just a new Item)
         """
         self[name] = adapter
-        logging.info(f"Registered new input source: {name}")
+        logging.info(f'Registered new input source: "{name}"')
 
     def expose(self, source, internal_name, name):
         """
         Expose input attribute using another name
         """
         self.exposed[name] = (source, internal_name)
+        logging.info(f'Exposed "{internal_name}" from "{source}" as "{name}"')

@@ -1,10 +1,10 @@
 import pandas as pd
 from os.path import join
 
-from yapp.core import InputAdapter
+from yapp import InputAdapter
 
 
-class CSV_input(InputAdapter):
+class CsvInput(InputAdapter):
     """
     CSV Input adapter
 
