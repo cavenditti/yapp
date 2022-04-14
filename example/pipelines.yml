@@ -1,0 +1,53 @@
+simple_task:
+    inputs:
+      # Should be in the form module.Class,
+      # if not we assume the module has the same name as the class
+      - file.CSV_input
+
+    expose:
+      file.CsvInput:
+        - "a_csv_file.csv": example_csv
+        - "a_csv_file.csv": example_csv
+        - "a_csv_file.csv": example_csv
+      # repeating the same items overwrites the preceding ones
+      file.CsvInput:
+        - "a_csv_file.csv": example_csv
+
+    steps:
+        - common.PreProcessor
+        - MainTask: common.PreProcessor
+
+sligthly_more_complex :
+    # inputs and outputs can be also specified in a separate
+    # config.yaml file
+    inputs:
+      - pgsql.PgSqlInput:
+        - username: PG_USER
+        - password: PG_PWD
+        - host: PG_HOST
+        - port: 5432
+        - database: PG_DB
+
+      - utils.DummyInput
+
+    outputs:
+      - pgsql.PgSqlOutput:
+        - username: PG_USER
+        # you can also specify a value from enviroment variables
+        - password: PG_PWD
+        - host: PG_HOST
+        - port: 5432
+        - database: PG_DB
+
+    expose:
+      - PgSqlInput:
+        - dataset: dataset
+
+    steps:
+        - common.PreProcessor
+        - PredictorA: common.PreProcessor
+        - PredictorB: common.PreProcessor
+        - PredictorC: common.PreProcessor
+        - Ensemble: [PredictorA, PredictorB, PredictorC]
+        - common.PostProcessor: Ensemble
+
