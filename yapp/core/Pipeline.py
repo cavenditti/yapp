@@ -17,6 +17,7 @@ class Pipeline:
     def __init__(
         self,
         job_list,
+        name="",
         inputs=Inputs(),
         outputs=[],
         on_job_start=None,
@@ -24,6 +25,12 @@ class Pipeline:
         on_pipeline_start=None,
         on_pipeline_finish=None,
     ):
+
+        if name:
+            self.name = name
+        else:
+            self.name = self.__class__.__name__
+
 
         self.job_list = job_list
 
@@ -61,11 +68,11 @@ class Pipeline:
         """
         Timed execution of a function, logging times
         """
-        logging.info(f"Starting {typename} {name}")
+        logging.info(f">> Starting {typename} {name}")
         start = datetime.now()
         out = fn(*args, **kwargs)
         end = datetime.now()
-        logging.info(f"Completed {typename} {name} (elapsed: {end-start})")
+        logging.info(f">> Completed {typename} {name} (elapsed: {end-start})")
         return out
 
     def _run_job(self, job):
@@ -77,6 +84,7 @@ class Pipeline:
 
         # Get arguments used in the execute function
         args = inspect.getfullargspec(job_obj.execute).args[1:]
+        logging.debug(f'Required inputs for {job.__name__}: {args}')
 
         self.run_hook(self.on_job_start)
 
@@ -89,7 +97,6 @@ class Pipeline:
         # save output and merge into inputs for next steps
         if last_output:
             self.save_output(job.__class__.__name__, last_output)
-            logging.info(f"saved {self.name} pipeline output")
             self.inputs.merge(last_output)
 
     def save_output(self, name, data):
@@ -98,6 +105,7 @@ class Pipeline:
         """
         for output in self.outputs:
             output.save(name, data)
+            logging.info(f"saved {name} output to {output}")
 
     def _run(self):
         """
@@ -115,7 +123,6 @@ class Pipeline:
         """
         Pipeline entrypoint
         """
-        self.name = self.__class__.__name__
         # Override inputs or outputs if specified
         if inputs:
             self.inputs = inputs
@@ -123,11 +130,11 @@ class Pipeline:
             self.outputs = outputs
 
         # Check if something is missing
-        if not inputs:
+        if not self.inputs:
             logging.warning(f'Missing inputs for pipeline {self.name}')
             #raise ValueError(f'Missing inputs for pipeline {self.name}')
-        if not outputs:
-            logging.warning(f'Missing output for pipeline {self.name}')
+        if not self.outputs:
+            logging.warning(f'Missing outputs for pipeline {self.name}')
             #raise ValueError(f'Missing output for pipeline {self.name}')
 
         if config:  # config shorthand, just another input

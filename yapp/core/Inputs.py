@@ -16,10 +16,11 @@ class Inputs(AttrDict):
             self.register(source.__class__.__name__, source)
 
     def __repr__(self):
-        return '<yapp inputs>'
+        keys = set(self.keys()) - {'exposed'}
+        return f'<yapp inputs {len(self)} {keys}>'
 
     def __str__(self):
-        return 'yapp Inputs object'
+        return '<yapp inputs>'
 
     def __len__(self):
         return super().__len__() + len(self.exposed) - 1  # skip exposed
@@ -30,10 +31,14 @@ class Inputs(AttrDict):
             # if it's an exposed resource from an adapter return it
             if key in self.exposed:
                 source, name = self.exposed[key]
-                return self[source][name]
+                return self[source].get(name)
             else:
                 return super().__getitem__(key)
         except KeyError as e:
+            logging.debug(f'{self.__repr__()} Trying to load missing input "{key}"')
+            if key in self.exposed:
+                source, name = self.exposed[key]
+                logging.debug(f'"{name}" exposed by "{source}" as "{key}"')
             raise KeyError(f'Trying to load missing input "{key}", {e}')
 
     def __getattr__(self, key):
@@ -45,6 +50,7 @@ class Inputs(AttrDict):
         super().__setitem__(key, value)
 
     def merge(self, d: dict):
+        logging.debug(f'Merging {list(d.keys())} into inputs')
         self.__dict__.update(d)
         return self
 

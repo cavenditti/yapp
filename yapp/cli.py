@@ -4,6 +4,7 @@ import graphlib
 import importlib.util
 import os
 import types
+import inspect
 import re
 import logging
 from types import MethodType
@@ -70,8 +71,15 @@ def build_job(pipeline_name, step):
         # TODO check again this code
         inner_fn = getattr(module, "execute")
 
-        def outer_fn(self, *inputs):
-            return inner_fn(*inputs)
+        # We're making the execute function an method
+        # This is black magic.
+        params = list(inspect.signature(inner_fn).parameters.keys())
+        func_body = f'''def execute (self, {','.join(params)}):
+                    return inner_fn({','.join(params)})
+                    '''
+        #logging.debug(f'Function code: {func_body}')
+        step_code = compile(func_body, step, "exec")
+        step_func = types.FunctionType(step_code.co_consts[0], locals(), step)
 
         # class execution namespace
         def clsexec(ns):
@@ -81,7 +89,8 @@ def build_job(pipeline_name, step):
         # Create new Job subclass
         NewJob = types.new_class(step, exec_body=clsexec)
         NewJob.__init__ = MethodType(Job.__init__, NewJob)
-        NewJob.execute = MethodType(outer_fn, NewJob)
+        NewJob.execute = MethodType(step_func, NewJob)
+        #logging.debug(inspect.signature(NewJob.execute))
         NewJob = Job.register(NewJob)
     return NewJob
 
@@ -123,7 +132,7 @@ def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks
 
     # for each step get the source and load it
     jobs = [build_job(pipeline_name, step) for step in ordered_steps[1:]]  # ignoring first None
-    return Pipeline(jobs, inputs=inputs, outputs=outputs, **hooks)
+    return Pipeline(jobs, name=pipeline_name, inputs=inputs, outputs=outputs, **hooks)
 
 
 def create_adapter(pipeline_name, adapter_def):
@@ -172,7 +181,10 @@ def build_inputs(pipeline_name, yaml_inputs, yaml_expose):
             exposed_var = next(iter(item))
             if '.' in item[exposed_var]:
                 raise ValueError('Dots not allowed in exposed names')
-            inputs.expose(key, exposed_var, item[exposed_var])
+            # FIXME better keep the whole name as key to avoid conflicts
+            # needs to change Inputs class
+            _, adapter_name = key.rsplit('.', 1)
+            inputs.expose(adapter_name, exposed_var, item[exposed_var])
 
     return inputs
 
@@ -199,6 +211,15 @@ def build_hooks(pipeline_name, yaml_hooks):
     raise NotImplementedError
 
 
+def yaml_read(path):
+    """
+    Read YAML from path
+    """
+    with open(path, "r") as file:
+        parsed = yaml.full_load(file)
+    return parsed
+
+
 def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml", config_file="config.yml"):
     """
     Reads pipelines.yml and config.yml to create a pipeline accordingly
@@ -212,16 +233,14 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml", co
     pipelines_file = os.path.join(path, pipelines_file)
     config_file = os.path.join(path, config_file)
 
-    with open(pipelines_file, "r") as file:
-        pipelines_yaml = yaml.safe_load(file)
+    # Read yaml configuration
+    pipelines_yaml = yaml_read(pipelines_file)
     if pipeline_name not in pipelines_yaml:
         raise KeyError(f"Invalid pipeline name: {pipeline_name}")
-
     pipeline_cfg = pipelines_yaml[pipeline_name]
 
     try:
-        with open(config_file, "r") as file:
-            config_yaml = yaml.safe_load(file)
+        config_yaml = yaml_read(config_file)
     except FileNotFoundError:
         logging.warning(f'Skipping missing config file {config_file}')
         config_yaml = {}
@@ -267,14 +286,30 @@ def main():
 
     args = parser.parse_args()
 
-    logging_format = '%(levelname)-7s|%(module)-8s%(lineno)-4s %(funcName)-20s %(message)s'
+    if args.loglevel == 'DEBUG':
+        logging_format = '%(levelname)-7s|%(module)-8s [%(lineno)-4s] %(funcName)-20s %(message)s'
+    else:
+        logging_format = '%(levelname)-7s| %(module)-8s | %(message)s'
+
     logging.basicConfig(format=logging_format, level=getattr(logging,args.loglevel), force=True)
 
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
+    except Exception as e:
+        logging.exception(e)
+        exit(-1)
+
+    try:
         pipeline()
     except Exception as e:
         logging.exception(e)
+        logging.debug(f'pipeline.inputs: {pipeline.inputs.__repr__()}')
+        logging.debug(f'pipeline.outputs: {pipeline.outputs}')
+        logging.debug(f'pipeline.job_list: {pipeline.job_list}')
+        for job in pipeline.job_list:
+            args = inspect.getfullargspec(job.execute).args
+            logging.debug(f'{job}.execute arguments: {args}')
+        exit(-1)
 
 
 if __name__ == "__main__":

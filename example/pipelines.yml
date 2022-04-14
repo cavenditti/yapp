@@ -2,15 +2,16 @@ simple_task:
     inputs:
       # Should be in the form module.Class,
       # if not we assume the module has the same name as the class
-      - file.CSV_input
+      - file.CsvInput:
+        - directory: "./data"
 
     expose:
-      file.CsvInput:
+      - file.CsvInput:
         - "a_csv_file.csv": example_csv
         - "a_csv_file.csv": example_csv
         - "a_csv_file.csv": example_csv
       # repeating the same items overwrites the preceding ones
-      file.CsvInput:
+      - file.CsvInput:
         - "a_csv_file.csv": example_csv
 
     steps:
@@ -27,8 +28,9 @@ sligthly_more_complex :
         - host: PG_HOST
         - port: 5432
         - database: PG_DB
-
       - utils.DummyInput
+      - file.CsvInput:
+        - directory: "./data"
 
     outputs:
       - pgsql.PgSqlOutput:
@@ -42,6 +44,10 @@ sligthly_more_complex :
     expose:
       - PgSqlInput:
         - dataset: dataset
+      - file.CsvInput:
+        - "a_csv_file.csv": example_csv
+      - utils.DummyInput:
+        - "whatever" : anempytdataframe
 
     steps:
         - common.PreProcessor
