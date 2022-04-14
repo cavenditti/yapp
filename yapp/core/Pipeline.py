@@ -87,10 +87,10 @@ class Pipeline:
         self.run_hook(self.on_job_finish)
 
         # save output and merge into inputs for next steps
-        self.save_output(job.__class__.__name__, last_output)
-        logging.info(f"saved {self.name} pipeline output")
-
-        self.inputs.merge(last_output)
+        if last_output:
+            self.save_output(job.__class__.__name__, last_output)
+            logging.info(f"saved {self.name} pipeline output")
+            self.inputs.merge(last_output)
 
     def save_output(self, name, data):
         """
@@ -111,7 +111,7 @@ class Pipeline:
 
         self.run_hook(self.on_pipeline_finish)
 
-    def __call__(self, inputs, outputs=None, config=None):
+    def __call__(self, inputs=None, outputs=None, config=None):
         """
         Pipeline entrypoint
         """
@@ -124,9 +124,11 @@ class Pipeline:
 
         # Check if something is missing
         if not inputs:
-            raise ValueError('Missing inputs')
+            logging.warning(f'Missing inputs for pipeline {self.name}')
+            #raise ValueError(f'Missing inputs for pipeline {self.name}')
         if not outputs:
-            raise ValueError('Missing outputs')
+            logging.warning(f'Missing output for pipeline {self.name}')
+            #raise ValueError(f'Missing output for pipeline {self.name}')
 
         if config:  # config shorthand, just another input
             self.input.config = AttrDict(config)

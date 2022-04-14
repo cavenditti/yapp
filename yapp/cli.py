@@ -27,6 +27,7 @@ yaml.add_constructor("!env", env_constructor)
 
 
 def load_module(pipeline_name, module_name):
+    logging.debug(f'Requested module to load "{module_name}" for pipeline "{pipeline_name}"')
     base_paths = [pipeline_name, "./"]
     # Remove eventual trailing ".py" and split at dots
     ref = re.sub(r"\.py$", "", module_name).split(".")
@@ -36,7 +37,7 @@ def load_module(pipeline_name, module_name):
     loaded = False
     for path in paths:
         try:
-            spec = importlib.util.spec_from_file_location(pipeline_name, path + ".py")
+            spec = importlib.util.spec_from_file_location(module_name, path + ".py")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             loaded = True
@@ -50,6 +51,8 @@ def load_module(pipeline_name, module_name):
             return importlib.import_module(f"yapp.adapters.{module_name}")
         except ModuleNotFoundError:
             raise FileNotFoundError(f"Cannot locate module {module_name} at {paths}")
+
+    logging.debug(f'Found module "{module}"')
     return module
 
 
@@ -57,6 +60,7 @@ def build_job(pipeline_name, step):
     """
     Create Job given pipeline and step name
     """
+    logging.debug(f'Building job "{step}" for pipeline "{pipeline_name}"')
     module = load_module(pipeline_name, step)
     # Try first loading a Job from the module,
     # if there's none try with execute function
@@ -69,11 +73,17 @@ def build_job(pipeline_name, step):
         def outer_fn(self, *inputs):
             return inner_fn(*inputs)
 
+        # class execution namespace
+        def clsexec(ns):
+                ns['__module__'] = 'yapp.jobs'
+                return ns
+
         # Create new Job subclass
-        NewJob = types.new_class(step, bases=(Job,))
+        NewJob = types.new_class(step, exec_body=clsexec)
+        NewJob.__init__ = MethodType(Job.__init__, NewJob)
         NewJob.execute = MethodType(outer_fn, NewJob)
-        job = NewJob
-    return job
+        NewJob = Job.register(NewJob)
+    return NewJob
 
 
 def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks={}):
@@ -87,6 +97,7 @@ def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks
         """
         dag = {}
         for step in step_list:
+            logging.debug(f'<steps> parsing "{step}"')
             if type(step) is str:
                 dag[step] = {None}
             elif type(step) is dict:
@@ -99,13 +110,19 @@ def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks
         return dag
 
     steps = make_dag(pipeline_cfg["steps"])
+    logging.debug(f'Performing topological ordering on steps: "{steps}"')
     try:
-        ordered_steps = graphlib.TopologicalSorter(steps).static_sort()
+        ordered_steps = graphlib.TopologicalSorter(steps).static_order()
+        ordered_steps = list(ordered_steps)
     except graphlib.CycleError:
         raise graphlib.CycleError(f"Invalid pipeline definition {pipeline_name}: cycle in steps dependencies")
+    logging.debug(f'Successfully ordered steps: {ordered_steps}')
+
+    # First step should be None: that is there are no dependencies for first step
+    assert ordered_steps[0] is None
 
     # for each step get the source and load it
-    jobs = [build_job(pipeline_name, step) for step in ordered_steps]
+    jobs = [build_job(pipeline_name, step) for step in ordered_steps[1:]]  # ignoring first None
     return Pipeline(jobs, inputs=inputs, outputs=outputs, **hooks)
 
 
@@ -141,7 +158,7 @@ def build_inputs(pipeline_name, yaml_inputs, yaml_expose):
 
     sources = set()
     for input_def in yaml_inputs:
-        logging.debug(f'<inputs> parsing {input_def}')
+        logging.debug(f'<inputs> parsing "{input_def}"')
 
         adapter = create_adapter(pipeline_name, input_def)
         logging.debug(f'Created input adapter {adapter}')
@@ -149,7 +166,7 @@ def build_inputs(pipeline_name, yaml_inputs, yaml_expose):
     inputs = Inputs(sources=sources)
 
     for expose_def in yaml_expose:
-        logging.debug(f'<expose> parsing {expose_def}')
+        logging.debug(f'<expose> parsing "{expose_def}"')
         key = next(iter(expose_def))
         for item in expose_def[key]:
             exposed_var = next(iter(item))
@@ -166,7 +183,7 @@ def build_outputs(pipeline_name, yaml_outputs):
     """
     outputs = set()
     for output_def in yaml_outputs:
-        logging.debug(f'<outputs> parsing {output_def}')
+        logging.debug(f'<outputs> parsing "{output_def}"')
 
         adapter = create_adapter(pipeline_name, output_def)
         logging.debug(f'Created output adapter {adapter}')
@@ -178,6 +195,7 @@ def build_hooks(pipeline_name, yaml_hooks):
     """
     Sets up hooks from `hooks` field in YAML files
     """
+    return {}
     raise NotImplementedError
 
 
@@ -205,7 +223,7 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml", co
         with open(config_file, "r") as file:
             config_yaml = yaml.safe_load(file)
     except FileNotFoundError:
-        logging.info(f'Skipping missing config file {config_file}')
+        logging.warning(f'Skipping missing config file {config_file}')
         config_yaml = {}
 
     logging.debug(f'pipelines_yaml: {pipeline_cfg}')
@@ -228,7 +246,7 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml", co
     config_yaml = pipeline_cfg
 
 
-    logging.info(f'Using pipeline config: {config_yaml}')
+    logging.debug(f'Using pipeline config: {config_yaml}')
     inputs = build_inputs(pipeline_name, config_yaml["inputs"], config_yaml["expose"])
     outputs = build_outputs(pipeline_name, config_yaml["outputs"])
     hooks = build_hooks(pipeline_name, config_yaml["hooks"])
