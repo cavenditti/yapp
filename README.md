@@ -41,12 +41,13 @@ Search path order: pipeline root > root directory
  - [ ] Finalize yaml files specification
  - [ ] Proper code organization
  - [x] Package
- - [ ] Working examples
+ - [ ] A good and working example
+ - [ ] hooks
+ - [ ] Working global config for multiple pipelines
 
 ### Possibly lower priority
  - TESTS.
- - Good logging
+ - ~Good~ Better logging
  - docstrings
- - Add pipeline status monitor class
+ - Add sample pipeline status monitor class
  - Consider permitting repeted tasks in a single pipeline (can this be useful?)
-
