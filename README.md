@@ -32,8 +32,6 @@ It searches in, in order:
 	2. Top level directory of your code
 	3. yapp built-in modules
 
-Search path order: pipeline root > root directory
-
 ## TODOs
 
 ### Basic features still missing:
