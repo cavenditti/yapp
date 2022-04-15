@@ -16,6 +16,19 @@ simple_task:
       - file.CsvInput:
         - "a_csv_file.csv": example_csv
 
+    # hooks define repeted custom task to execute at specific times
+    # Currently hooks can be defined to run:
+    #   - on_pipeline_start
+    #   - on_pipeline_end
+    #   - on_job_start
+    #   - on_job_end
+    hooks:
+      on_pipeline_start:
+        - common.UselessHook.whatever
+
+      on_job_start:
+        - common.UselessHook.whatever
+
     steps:
         # A step can be a function object
         - common.PreProcessor

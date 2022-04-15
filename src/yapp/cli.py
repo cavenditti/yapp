@@ -234,8 +234,21 @@ def build_hooks(pipeline_name, yaml_hooks):
     """
     Sets up hooks from `hooks` field in YAML files
     """
-    return {}
-    raise NotImplementedError
+    logging.debug(f'<hooks> parsing "{yaml_hooks}"')
+
+    accepted_fields = ["on_pipeline_start", "on_pipeline_end", "on_job_start", "on_job_end"]
+    hooks = {k:yaml_hooks[k] for k in accepted_fields if k in yaml_hooks.keys()}
+    print(hooks)
+    for k,v in hooks.items():
+        for hook in v:
+            if type(hook) is not str:
+                raise ValueError(f"Invalid hook value:{hook}")
+            module_name, func_name = hook.rsplit('.', 1)
+            module = load_module(pipeline_name, module_name)
+            func = getattr(module, func_name)
+            hooks[k] = func
+    logging.debug(f'Parsed hooks: {hooks}"')
+    return hooks
 
 
 def yaml_read(path):

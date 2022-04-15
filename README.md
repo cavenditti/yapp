@@ -37,7 +37,7 @@ It searches in, in order:
 ### Basic features still missing:
  - [x] yapp cli command
  - [ ] Finalize yaml files specification
- - [ ] Proper code organization
+ - [x] Proper code organization
  - [x] Package
  - [ ] A good and working example
  - [ ] hooks
