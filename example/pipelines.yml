@@ -1,22 +1,28 @@
 simple_task:
+    # input adapters to use
     inputs:
       # Should be in the form module.Class,
-      # if not we assume the module has the same name as the class
+      # otherwise yapp assumes module and class names are the same
       - file.CsvInput:
         - directory: "./data"
 
+    # inputs to expose from adapters, this is used to map inputs from adapters into names used
+    # inside the steps to refer to those variables
     expose:
       - file.CsvInput:
         - "a_csv_file.csv": example_csv
-        - "a_csv_file.csv": example_csv
-        - "a_csv_file.csv": example_csv
+        - "another_csv_file.csv": example_csv_2
       # repeating the same items overwrites the preceding ones
       - file.CsvInput:
         - "a_csv_file.csv": example_csv
 
     steps:
+        # A step can be a function object
         - common.PreProcessor
+        # Or a module (a .py file) with an "execute" function
         - MainTask: common.PreProcessor
+        # Or a function inside a module, in this case print_something() inside Later.py
+        - Later.print_something: MainTask
 
 sligthly_more_complex :
     # inputs and outputs can be also specified in a separate

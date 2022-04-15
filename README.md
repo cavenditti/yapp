@@ -51,3 +51,5 @@ Search path order: pipeline root > root directory
  - docstrings
  - Add sample pipeline status monitor class
  - Consider permitting repeted tasks in a single pipeline (can this be useful?)
+ - For each step, keep track of the inputs required in future steps. So that unneeded ones can be
+   removed from memory

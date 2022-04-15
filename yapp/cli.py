@@ -38,6 +38,7 @@ def load_module(pipeline_name, module_name):
     loaded = False
     for path in paths:
         try:
+            logging.debug(f'Trying path {path} for module {module_name}')
             spec = importlib.util.spec_from_file_location(module_name, path + ".py")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -62,17 +63,30 @@ def build_job(pipeline_name, step):
     Create Job given pipeline and step name
     """
     logging.debug(f'Building job "{step}" for pipeline "{pipeline_name}"')
-    module = load_module(pipeline_name, step)
+
+    # TODO make this code less ugly
+    try:
+        module = load_module(pipeline_name, step)
+        func_name = "execute"
+    except FileNotFoundError as e:
+        # maybe it's a function in module, try also loading that
+        if '.' in step:
+            module_name, func_name = step.rsplit('.', 1)
+            module = load_module(pipeline_name, module_name)
+
     # Try first loading a Job from the module,
     # if there's none try with execute function
+    # if there's none try loading a function from module
     try:
         job = getattr(module, step)
+        logging.debug(f'Using Job object {step} from {module}')
     except AttributeError:
         # TODO check again this code
-        inner_fn = getattr(module, "execute")
+        inner_fn = getattr(module, func_name)
+        logging.debug(f'Using function "{func_name}" from {module}')
 
-        # We're making the execute function an method
-        # This is black magic.
+        # Writing the execute function to use the loaded function and making it a bound method
+        # of a new created Job subclass. This is black magic.
         params = list(inspect.signature(inner_fn).parameters.keys())
         func_body = f'''def execute (self, {','.join(params)}):
                     return inner_fn({','.join(params)})
@@ -86,9 +100,16 @@ def build_job(pipeline_name, step):
                 ns['__module__'] = 'yapp.jobs'
                 return ns
 
+        # It's not actually required to have our new Job subclass to REALLY be a Job subclass
+        # since the execute function is not going to access self anyway, but we may decide in future
+        # to move some logic from Pipeline inside the Job, or add whatever functionality.
+        # So doing things this way may make things easier in the future.
+        class ConcreteJob(Job):
+            def execute(self, *inputs):
+                pass
+
         # Create new Job subclass
-        NewJob = types.new_class(step, exec_body=clsexec)
-        NewJob.__init__ = MethodType(Job.__init__, NewJob)
+        NewJob = types.new_class(step, bases=(ConcreteJob,), exec_body=clsexec)
         NewJob.execute = MethodType(step_func, NewJob)
         #logging.debug(inspect.signature(NewJob.execute))
         NewJob = Job.register(NewJob)
@@ -136,6 +157,9 @@ def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks
 
 
 def create_adapter(pipeline_name, adapter_def):
+    """
+    Loads the relevant module and instantiates an adapter from it
+    """
     # get adapter name and prepare contructor params (if any)
     params = {}
     if type(adapter_def) != str:  # dict
@@ -183,7 +207,10 @@ def build_inputs(pipeline_name, yaml_inputs, yaml_expose):
                 raise ValueError('Dots not allowed in exposed names')
             # FIXME better keep the whole name as key to avoid conflicts
             # needs to change Inputs class
-            _, adapter_name = key.rsplit('.', 1)
+            if '.' in key:
+                _, adapter_name = key.rsplit('.', 1)
+            else:
+                adapter_name = key
             inputs.expose(adapter_name, exposed_var, item[exposed_var])
 
     return inputs

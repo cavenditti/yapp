@@ -91,6 +91,9 @@ class Pipeline:
         # call execute with right inputs
         # TODO exception handling
         last_output = job_obj.execute(*[self.inputs[i] for i in args])
+        logging.debug(f'{job.__name__} run successfully')
+        logging.debug(f'''{job.__name__} returned {list(last_output.keys()) if last_output else
+                last_output}''')
 
         self.run_hook(self.on_job_finish)
 
