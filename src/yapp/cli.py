@@ -3,6 +3,7 @@ import yaml
 import graphlib
 import importlib.util
 import os
+import sys
 import types
 import inspect
 import re
@@ -54,7 +55,7 @@ def load_module(pipeline_name, module_name):
         except ModuleNotFoundError:
             raise FileNotFoundError(f"Cannot locate module {module_name} at {paths}")
 
-    logging.debug(f'Found module "{module}"')
+    logging.debug(f'Found module {module}')
     return module
 
 
@@ -234,19 +235,31 @@ def build_hooks(pipeline_name, yaml_hooks):
     """
     Sets up hooks from `hooks` field in YAML files
     """
-    logging.debug(f'<hooks> parsing "{yaml_hooks}"')
 
-    accepted_fields = ["on_pipeline_start", "on_pipeline_end", "on_job_start", "on_job_end"]
-    hooks = {k:yaml_hooks[k] for k in accepted_fields if k in yaml_hooks.keys()}
-    print(hooks)
-    for k,v in hooks.items():
-        for hook in v:
+    hooks = {}
+    logging.debug(hooks)
+    for hook_tuple in yaml_hooks.items():
+        logging.debug(f'<hooks> parsing "{hook_tuple}"')
+        hook_name, hooks_list = hook_tuple
+
+        # check if a valid hook
+        if hook_name not in Pipeline._valid_hooks:
+            raise ValueError(f"""Invalid hook specified: {hook_name}.
+Hooks can be one of {list(Pipeline._hooks.keys())}""")
+
+        hooks[hook_name] = []
+
+        # Then for each function in the list try to load it
+        for hook in hooks_list:
             if type(hook) is not str:
-                raise ValueError(f"Invalid hook value:{hook}")
+                raise ValueError(f"Invalid hook value for {hook_name}: {hook}")
             module_name, func_name = hook.rsplit('.', 1)
             module = load_module(pipeline_name, module_name)
             func = getattr(module, func_name)
-            hooks[k] = func
+            logging.debug(f'Using function: {func_name} from module {module_name}')
+            hooks[hook_name].append(func)
+        logging.debug(f'AO: {hook_name} {hooks[hook_name]}')
+
     logging.debug(f'Parsed hooks: {hooks}"')
     return hooks
 
@@ -316,22 +329,52 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml", co
 
 def main():
     parser = argparse.ArgumentParser(description='Run yapp pipeline')
-    parser.add_argument('--path', nargs='?', default='./',
-                        help='Path to look in for pipelines definitions')
-    parser.add_argument('--loglevel', nargs='?', default='INFO',
-                        help='Log level to use')
-    parser.add_argument('pipeline', type=str,
-                        help='Pipeline name')
 
+    parser.add_argument(
+        '-p', '--path',
+        nargs='?',
+        default='./',
+        help='Path to look in for pipelines definitions'
+    )
+
+    parser.add_argument(
+        '-d', '--debug',
+        action="store_const", dest="loglevel", const='DEBUG',
+        default='INFO',
+        help='Set loglevel to DEBUG, same as --loglevel=DEBUG'
+    )
+
+    parser.add_argument(
+        '-l', '--loglevel',
+        nargs='?',
+        dest="loglevel",
+        default='INFO',
+        help='Log level to use'
+    )
+
+    parser.add_argument(
+        'pipeline',
+        type=str,
+        help='Pipeline name'
+    )
 
     args = parser.parse_args()
 
-    if args.loglevel == 'DEBUG':
-        logging_format = '%(levelname)-7s|%(module)-8s [%(lineno)-4s] %(funcName)-20s %(message)s'
-    else:
-        logging_format = '%(levelname)-7s| %(module)-8s | %(message)s'
+    loglevel = args.loglevel.upper()
 
-    logging.basicConfig(format=logging_format, level=getattr(logging,args.loglevel), force=True)
+    if loglevel == 'DEBUG':
+        logging_format = '%(levelname)-7s| %(module)-12s |%(funcName)-15s [%(lineno)-4s] %(message)s'
+    else:
+        logging_format = '%(levelname)-7s| %(module)-12s | %(message)s'
+
+    logging.basicConfig(format=logging_format, level=getattr(logging,loglevel), force=True)
+
+    # send print calls from Jobs and Hooks to log.
+    # Even though there are probably better ways of doing this,
+    # I prefer this one because keeps the track of where print is called
+    # the downside is that the prints are messed up and splitted
+    logger = logging.getLogger()
+    sys.stdout.write = logger.info
 
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)

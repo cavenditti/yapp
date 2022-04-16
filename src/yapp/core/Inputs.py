@@ -15,12 +15,9 @@ class Inputs(AttrDict):
         for source in sources:
             self.register(source.__class__.__name__, source)
 
-    def __repr__(self):
+    def __str__(self):
         keys = set(self.keys()) - {'exposed'}
         return f'<yapp inputs {len(self)} {keys}>'
-
-    def __str__(self):
-        return '<yapp inputs>'
 
     def __len__(self):
         return super().__len__() + len(self.exposed) - 1  # skip exposed

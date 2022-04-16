@@ -23,10 +23,12 @@ simple_task:
     #   - on_job_start
     #   - on_job_end
     hooks:
-      on_pipeline_start:
+      on_job_start:
         - common.UselessHook.whatever
 
-      on_job_start:
+      on_pipeline_start:
+        # multiple hooks for a single event can be specified
+        - common.UselessHook.whatever
         - common.UselessHook.whatever
 
     steps:

@@ -8,6 +8,13 @@ class Job(ABC):
     def __init__(self, pipeline):
         self.pipeline = pipeline
 
+    @property
+    def name(self):
+        return self.__class__.__name__
+
+    def __str__(self):
+        return self.name
+
     @abstractmethod
     def execute(self, *inputs):
         pass
