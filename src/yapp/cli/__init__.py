@@ -406,9 +406,6 @@ def main():
     else:
         logging_format = "%(levelname)-7s| %(module)-12s | %(message)s"
 
-    logging.basicConfig(
-        format=logging_format, level=getattr(logging, loglevel), force=True
-    )
 
     # send print calls from Jobs and Hooks to log.
     # Even though there are probably better ways of doing this,
@@ -416,6 +413,50 @@ def main():
     # the downside is that the prints are messed up and splitted
     logger = logging.getLogger()
     sys.stdout.write = logger.info
+
+    class LogFormatter(logging.Formatter):
+        width = 26
+
+        white = "\x1b[1;37m"
+        yellow = "\x1b[1;33m"
+        blue = "\x1b[1;34m"
+        red = "\x1b[31;1m"
+        reset = "\x1b[0m"
+        format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+
+        FORMATS = {
+            logging.DEBUG: white,
+            logging.INFO: blue,
+            logging.WARNING: yellow,
+            logging.ERROR: red,
+            logging.CRITICAL: red
+        }
+
+        def format(self, record):
+            log_fmt = self.FORMATS.get(record.levelno)
+            formatter = logging.Formatter(log_fmt)
+            return formatter.format(record)
+
+        def format(self, record):
+            if len(record.module) > 10:
+                record.module = record.module[:10] + '…'
+            if len(record.funcName) > 10:
+                record.funcName = record.funcName[:10] + '…'
+            levelname = record.levelname[:1]
+            lineno = str(record.lineno)
+            head = "%s %s.%s" % (levelname[:1], record.module, record.funcName)
+            head = '[' + head.ljust(self.width-len(lineno)) + ' ' + lineno + ']'
+            head = self.FORMATS.get(record.levelno) + head + self.reset
+
+            return "%s %s" % (head, record.msg)
+
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = LogFormatter()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
 
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
