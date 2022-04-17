@@ -101,7 +101,7 @@ class Pipeline:
         start = datetime.now()
         out = fn(*args, **kwargs)
         end = datetime.now()
-        logging.info(f"{prefix} Completed {typename} {name} (elapsed: {end-start})")
+        logging.ok(f"{prefix} Completed {typename} {name} (elapsed: {end-start})")
 
         # Decrease nesting level
         self.__nested_timed_calls -= 1
