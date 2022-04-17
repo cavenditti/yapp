@@ -487,7 +487,12 @@ def main():
             lineno = str(record.lineno)
             head = "%s %s.%s" % (levelname[:1], record.module, record.funcName)
             head = '[' + head.ljust(self.width-len(lineno)) + ' ' + lineno + ']'
-            head = self.FORMATS.get(record.levelno) + head + self.reset
+            record.msg = str(record.msg)
+            if record.msg.startswith('> '):
+                head = self.FORMATS.get(record.levelno) + head
+                record.msg = record.msg[2:] + self.reset
+            else:
+                head = self.FORMATS.get(record.levelno) + head + self.reset
 
             # An ugly hack to prevent printing empty lines from print calls (2/3)
             return "%s %s\n" % (head, record.msg)
