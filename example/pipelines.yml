@@ -4,7 +4,7 @@ simple_task:
       # Should be in the form module.Class,
       # otherwise yapp assumes module and class names are the same
       - file.CsvInput:
-        - directory: "./data"
+          directory: "./data"
 
     # inputs to expose from adapters, this is used to map inputs from adapters into names used
     # inside the steps to refer to those variables
@@ -44,31 +44,31 @@ sligthly_more_complex :
     # config.yaml file
     inputs:
       - pgsql.PgSqlInput:
-        - username: PG_USER
-        - password: PG_PWD
-        - host: PG_HOST
-        - port: 5432
-        - database: PG_DB
+          username: carlo
+          password:
+          host: localhost
+          port: 5432
+          database: public
       - utils.DummyInput
       - file.CsvInput:
-        - directory: "./data"
+          directory: "./data"
 
     outputs:
       - pgsql.PgSqlOutput:
-        - username: PG_USER
-        # you can also specify a value from enviroment variables
-        - password: PG_PWD
-        - host: PG_HOST
-        - port: 5432
-        - database: PG_DB
+          username: PG_USER
+          # you can also specify a value from enviroment variables
+          password: !env PG_PWD
+          host: PG_HOST
+          port: 5432
+          database: PG_DB
 
     expose:
       - PgSqlInput:
-        - dataset: dataset
+        dataset: dataset
       - file.CsvInput:
-        - "a_csv_file.csv": example_csv
+        "a_csv_file.csv": example_csv
       - utils.DummyInput:
-        - "whatever" : anempytdataframe
+        "whatever" : anempytdataframe
 
     steps:
         - common.PreProcessor

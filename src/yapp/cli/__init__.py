@@ -1,6 +1,5 @@
 import argparse
 import yaml
-from cerberus import Validator
 import graphlib
 import importlib.util
 import os
@@ -11,7 +10,9 @@ import re
 import logging
 from types import MethodType
 
-from .core import Pipeline, Job, Inputs
+from yapp.core import Pipeline, Job, Inputs
+from yapp import ConfigurationError
+from yapp.cli.validation import schema_validation
 
 
 def env_constructor(loader, node):
@@ -22,7 +23,7 @@ def env_constructor(loader, node):
         value = loader.construct_scalar(node)
         return os.environ[value]
     except KeyError as e:
-        raise KeyError(f"Missing environment variable: {e.args[0]}")
+        raise KeyError(f"Missing environment variable: {e.args[0]}") from None
 
 
 # use !env VARIABLENAME to refer env variables
@@ -56,7 +57,7 @@ def load_module(pipeline_name, module_name):
         try:
             return importlib.import_module(f"yapp.adapters.{module_name}")
         except ModuleNotFoundError:
-            raise FileNotFoundError(f"Cannot locate module {module_name} at {paths}")
+            raise FileNotFoundError(f"Cannot locate module {module_name} at {paths}") from None
 
     logging.debug(f"Found module {module}")
     return module
@@ -151,7 +152,7 @@ def build_pipeline(pipeline_name, pipeline_cfg, inputs=None, outputs=None, hooks
     except graphlib.CycleError:
         raise graphlib.CycleError(
             f"Invalid pipeline definition {pipeline_name}: cycle in steps dependencies"
-        )
+        ) from None
     logging.debug(f"Successfully ordered steps: {ordered_steps}")
 
     # First step should be None: that is there are no dependencies for first step
@@ -172,8 +173,7 @@ def create_adapter(pipeline_name, adapter_def):
     params = {}
     if type(adapter_def) != str:  # dict
         adapter_name = next(iter(adapter_def))
-        for d in adapter_def[adapter_name]:
-            params.update(d)
+        params = adapter_def[adapter_name]
     else:  # str
         adapter_name = adapter_def
 
@@ -208,6 +208,7 @@ def build_inputs(pipeline_name, cfg_inputs, cfg_expose):
 
     for expose_def in cfg_expose:
         logging.debug(f'<expose> parsing "{expose_def}"')
+        it = iter(expose_def)
         key = next(iter(expose_def))
         for item in expose_def[key]:
             exposed_var = next(iter(item))
@@ -285,26 +286,6 @@ def yaml_read(path):
     return parsed
 
 
-def schema_validation(definitions):
-    """
-    Validate schema for definitions from YAML file
-    """
-    v = Validator()
-    v.schema = {}
-
-    pipeline_schema = {
-        "inputs": {"type": "list"},
-        "expose": {"type": "list"},
-        "steps": {"type": "list"},
-        "outputs": {"type": "list"},
-        "hooks": {
-             "schema": {hook: {"type": "list"} for hook in Pipeline._valid_hooks}
-            },
-    }
-    logging.debug(pipeline_schema)
-    v.allow_unknown = {"type": "dict", "schema": pipeline_schema}
-    v.validate(definitions)
-    return v.errors
 
 
 def create_pipeline(
@@ -330,11 +311,11 @@ def create_pipeline(
 
     # Read yaml configuration and validate it
     pipelines_yaml = yaml_read(pipelines_file)
+    logging.debug(f"Loaded YAML: {pipelines_yaml}")
     config_errors = schema_validation(pipelines_yaml)
 
     if pipeline_name in config_errors:
-        logging.debug(f"Loaded YAML: {pipelines_yaml}")
-        raise ValueError(f'Pipeline configuration error: {config_errors}')
+        raise ConfigurationError(config_errors, relevant_field=pipeline_name)
     elif config_errors:
         logging.warning(f'Configuration errors for pipelines: {list(config_errors.keys())}')
     else:
