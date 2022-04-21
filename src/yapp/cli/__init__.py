@@ -12,7 +12,7 @@ from types import MethodType
 
 from yapp.core import Pipeline, Job, Inputs
 from yapp import ConfigurationError
-from yapp.cli.validation import schema_validation
+from yapp.cli.validation import pipelines_schema_validation
 
 
 def env_constructor(loader, node):
@@ -312,7 +312,7 @@ def create_pipeline(
     # Read yaml configuration and validate it
     pipelines_yaml = yaml_read(pipelines_file)
     logging.debug(f"Loaded YAML: {pipelines_yaml}")
-    config_errors = schema_validation(pipelines_yaml)
+    config_errors = pipelines_schema_validation(pipelines_yaml)
 
     if pipeline_name in config_errors:
         raise ConfigurationError(config_errors, relevant_field=pipeline_name)
