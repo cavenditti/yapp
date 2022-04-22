@@ -1,80 +1,62 @@
+#
+# This is an example yapp-pipelines configuration file
+# You can also look at pipelines_annotated.yml for an extensively annotated version of this file
+#
+
 simple_task:
-    # input adapters to use
     inputs:
-      # Should be in the form module.Class,
-      # otherwise yapp assumes module and class names are the same
       - file.CsvInput:
           directory: "./data"
 
-    # inputs to expose from adapters, this is used to map inputs from adapters into names used
-    # inside the steps to refer to those variables
     expose:
       - file.CsvInput:
         - "a_csv_file.csv": example_csv
-        - "another_csv_file.csv": example_csv_2
-      # repeating the same items overwrites the preceding ones
-      - file.CsvInput:
         - "a_csv_file.csv": example_csv
 
-    # hooks define repeted custom task to execute at specific times
-    # Currently hooks can be defined to run:
-    #   - on_pipeline_start
-    #   - on_pipeline_end
-    #   - on_job_start
-    #   - on_job_end
     hooks:
       on_job_start:
         - common.UselessHook.whatever
-
       on_pipeline_start:
-        # multiple hooks for a single event can be specified
-        - common.UselessHook.whatever
         - common.UselessHook.whatever
 
     steps:
-        # A step can be a function object
-        - common.PreProcessor
-        # Or a module (a .py file) with an "execute" function
-        - MainTask: common.PreProcessor
-        # Or a function inside a module, in this case print_something() inside Later.py
-        - Later.print_something: MainTask
+      - common.PreProcessor
+      - MainTask: common.PreProcessor
+      - Later.print_something: MainTask
 
 sligthly_more_complex :
-    # inputs and outputs can be also specified in a separate
-    # config.yaml file
     inputs:
       - pgsql.PgSqlInput:
           username: carlo
           password:
           host: localhost
           port: 5432
-          database: public
+          database: postgres
       - utils.DummyInput
       - file.CsvInput:
           directory: "./data"
 
     outputs:
       - pgsql.PgSqlOutput:
-          username: PG_USER
-          # you can also specify a value from enviroment variables
+          username: carlo
           password: !env PG_PWD
-          host: PG_HOST
+          host: localhost
           port: 5432
-          database: PG_DB
+          database: postgres
 
     expose:
       - PgSqlInput:
-        dataset: dataset
+        - dataset: dataset
       - file.CsvInput:
-        "a_csv_file.csv": example_csv
+        - "a_csv_file.csv": example_csv
       - utils.DummyInput:
-        "whatever" : anempytdataframe
+        - "whatever" : anempytdataframe
 
     steps:
-        - common.PreProcessor
-        - PredictorA: common.PreProcessor
-        - PredictorB: common.PreProcessor
-        - PredictorC: common.PreProcessor
-        - Ensemble: [PredictorA, PredictorB, PredictorC]
-        - common.PostProcessor: Ensemble
+      - common.PreProcessor
+      - PredictorA: common.PreProcessor
+      - PredictorB: common.PreProcessor
+      - PredictorC: common.PreProcessor
+      - Ensemble: [PredictorA, PredictorB, PredictorC]
+      - common.PostProcessor: Ensemble
 
