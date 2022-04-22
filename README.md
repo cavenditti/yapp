@@ -36,9 +36,10 @@ yapp [-h] [-p [PATH]] [-d] pipeline
 
 yapp automatically searches for classes and functions you use in your yaml files.
 It searches in, in order:
-	1. The pipeline directory (if it exists)
-	2. Top level directory of your code
-	3. yapp built-in modules
+
+ 1. The pipeline directory (if it exists)
+ 2. Top level directory of your code
+ 3. yapp built-in modules
 
 ## TODOs
 
@@ -56,7 +57,7 @@ It searches in, in order:
  - ~Good~ Better logging
  - docstrings
  - CI/CD (even very basic)
- - Add sample pipeline status monitor class
+ - Pipeline status monitor class with an example
  - Consider permitting repeted tasks in a single pipeline (can this be useful?)
  - For each step, keep track of the inputs required in future steps. So that unneeded ones can be
    removed from memory
