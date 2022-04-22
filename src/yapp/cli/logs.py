@@ -1,8 +1,6 @@
 import logging
 import sys
 
-enable_color = False
-
 
 def addLoggingLevel(levelName, levelNum, methodName=None):
     """
@@ -55,36 +53,39 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
     setattr(logging, methodName, logToRoot)
 
 
-def get_color(loglevel=None):
-    """
-    Returns the color escape characters to print
-    """
-    if not enable_color:
-        return ""
-
-    white = "\x1b[1;37m"
-    gray = "\x1b[38;5;247m"
-    yellow = "\x1b[1;33m"
-    blue = "\x1b[1;34m"
-    # purple = "\x1b[1;35m"
-    green = "\x1b[1;32m"
-    red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-
-    FORMATS = {
-        logging.DEBUG: white,
-        logging.INFO: blue,
-        logging.OK: green,
-        logging.PRINT: gray,
-        logging.WARNING: yellow,
-        logging.ERROR: red,
-        logging.CRITICAL: red,
-    }
-    return FORMATS.get(loglevel, reset)
-
-
 class LogFormatter(logging.Formatter):
-    width = 26
+    def __init__(self, width=26, color=False):
+        self.width = width
+        self.color = color
+
+
+    def get_color(self, loglevel=None):
+        """
+        Returns the color escape characters to print
+        """
+        if not self.color:
+            return ''
+
+        white = "\x1b[1;37m"
+        gray = "\x1b[38;5;247m"
+        yellow = "\x1b[1;33m"
+        blue = "\x1b[1;34m"
+        # purple = "\x1b[1;35m"
+        green = "\x1b[1;32m"
+        red = "\x1b[31;1m"
+        reset = "\x1b[0m"
+
+        FORMATS = {
+            logging.DEBUG: white,
+            logging.INFO: blue,
+            logging.OK: green,
+            logging.PRINT: gray,
+            logging.WARNING: yellow,
+            logging.ERROR: red,
+            logging.CRITICAL: red,
+        }
+        return FORMATS.get(loglevel, reset)
+
 
     def format(self, record):
         # An ugly hack to prevent printing empty lines from print calls (1/3)
@@ -100,20 +101,18 @@ class LogFormatter(logging.Formatter):
         head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
         record.msg = str(record.msg)
         if record.msg.startswith("> "):
-            head = get_color(record.levelno) + head
-            record.msg = get_color(logging.DEBUG) + record.msg[2:] + get_color()
+            head = self.get_color(record.levelno) + head
+            #record.msg = self.get_color(logging.DEBUG) + record.msg[2:] + self.get_color()
+            record.msg = record.msg[2:] + self.get_color()
         else:
-            head = get_color(record.levelno) + head + get_color()
+            head = self.get_color(record.levelno) + head + self.get_color()
 
         # An ugly hack to prevent printing empty lines from print calls (2/3)
         return "%s %s\n" % (head, record.msg.lstrip())
 
 
-def setup_logging(loglevel, color=False):
+def setup_logging(loglevel, color=False, logfile=''):
     # setup colored output
-    # TODO use an attribute instead of a global variable
-    global enable_color
-    enable_color = color
 
     logger = logging.getLogger()
 
@@ -121,13 +120,20 @@ def setup_logging(loglevel, color=False):
     addLoggingLevel("PRINT", 22)
 
     logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
+
+    stream_handlers = [(logging.StreamHandler(), color)]
+    if logfile:
+        stream_handlers.append( (logging.FileHandler(logfile), False) )
+
     # An ugly hack to prevent printing empty lines from print calls (3/3)
-    ch.terminator = ""
-    ch.setLevel(getattr(logging, loglevel))
-    formatter = LogFormatter()
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    for pair in stream_handlers:
+        stream_handler, color = pair
+        stream_handler.terminator = ""
+        stream_handler.setLevel(getattr(logging, loglevel))
+        formatter = LogFormatter(color=color)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+
 
     # send print calls from Jobs and Hooks to log.
     # Even though there are probably better ways of doing this,

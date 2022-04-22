@@ -382,6 +382,25 @@ def main():
     )
 
     parser.add_argument(
+        "-l",
+        "--loglevel",
+        nargs="?",
+        dest="loglevel",
+        default="INFO",
+        help="Log level to use",
+    )
+
+    parser.add_argument(
+        "-f",
+        "--logfile",
+        nargs="?",
+        dest="logfile",
+        type=str,
+        default='',
+        help="Log level to use",
+    )
+
+    parser.add_argument(
         '--color',
         action="store_const", dest="color", const=True,
         default=False,
@@ -397,7 +416,7 @@ def main():
     args = parser.parse_args()
     loglevel = args.loglevel.upper()
 
-    setup_logging(loglevel, color=args.color)
+    setup_logging(loglevel, color=args.color, logfile=args.logfile)
 
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
