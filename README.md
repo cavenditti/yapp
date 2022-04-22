@@ -8,11 +8,17 @@ yapp strives to be as simple as possible and make you focus on the correctness o
 It's developed with specific requirements and built according to those: it may be the best choice for you once completed, or may be not.
 For sure it isn't right now.
 
+## Install
+
+```
+pip install yapp-pipelines
+```
+
 ## Usage
 
 Pipelines are described using yaml files:
  - `pipelines.yml` defines the pipelines [required]
- - `config.yml`		defines a global configuration (e.g. inputs and outputs)
+ - `config.yml`		defines a global configuration (e.g. inputs and outputs) for all pipelines. Not implemented yet.
 
 A Pipeline is made up of Jobs.
 A Job represents a step of the pipeline, it takes inputs as parameters and returns a dict of outputs.
@@ -23,8 +29,10 @@ willingly design choice).
 Pipelines can have hooks to perform specific task before or after each task (such as updating some
 kind of status monitor)
 
-You can run a pipeline using:
-```yapp PIPELINE_NAME [PATH]```
+You can run a pipeline using the `yapp` command:
+```
+yapp [-h] [-p [PATH]] [-d] pipeline
+```
 
 yapp automatically searches for classes and functions you use in your yaml files.
 It searches in, in order:
@@ -36,18 +44,20 @@ It searches in, in order:
 
 ### Basic features still missing:
  - [x] yapp cli command
- - [ ] Finalize yaml files specification
+ - [x] ~Finalize~ yaml files specification (yet to be properly documented)
  - [x] Proper code organization
  - [x] Package
  - [ ] A good and working example
- - [ ] hooks
+ - [x] hooks
  - [ ] Working global config for multiple pipelines
 
 ### Possibly lower priority
  - TESTS.
  - ~Good~ Better logging
  - docstrings
+ - CI/CD (even very basic)
  - Add sample pipeline status monitor class
  - Consider permitting repeted tasks in a single pipeline (can this be useful?)
  - For each step, keep track of the inputs required in future steps. So that unneeded ones can be
    removed from memory
+ - Inputs aliases
