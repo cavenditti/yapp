@@ -3,7 +3,6 @@ import yaml
 import graphlib
 import importlib.util
 import os
-import sys
 import types
 import inspect
 import re
@@ -13,6 +12,7 @@ from types import MethodType
 from yapp.core import Pipeline, Job, Inputs
 from yapp import ConfigurationError
 from yapp.cli.validation import pipelines_schema_validation
+from yapp.cli.logs import setup_logging
 
 
 def env_constructor(loader, node):
@@ -73,7 +73,7 @@ def build_job(pipeline_name, step):
     try:
         module = load_module(pipeline_name, step)
         func_name = "execute"
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         # maybe it's a function in module, try also loading that
         if "." in step:
             module_name, func_name = step.rsplit(".", 1)
@@ -208,7 +208,6 @@ def build_inputs(pipeline_name, cfg_inputs, cfg_expose):
 
     for expose_def in cfg_expose:
         logging.debug(f'<expose> parsing "{expose_def}"')
-        it = iter(expose_def)
         key = next(iter(expose_def))
         for item in expose_def[key]:
             exposed_var = next(iter(item))
@@ -284,8 +283,6 @@ def yaml_read(path):
     with open(path, "r") as file:
         parsed = yaml.full_load(file)
     return parsed
-
-
 
 
 def create_pipeline(
@@ -393,29 +390,33 @@ def main():
         help="Log level to use",
     )
 
-    parser.add_argument("pipeline", type=str, help="Pipeline name")
-
-    args = parser.parse_args()
-
-    loglevel = args.loglevel.upper()
-
-    if loglevel == "DEBUG":
-        logging_format = (
-            "%(levelname)-7s| %(module)-12s |%(funcName)-15s [%(lineno)-4s] %(message)s"
-        )
-    else:
-        logging_format = "%(levelname)-7s| %(module)-12s | %(message)s"
-
-    logging.basicConfig(
-        format=logging_format, level=getattr(logging, loglevel), force=True
+    parser.add_argument(
+        "-f",
+        "--logfile",
+        nargs="?",
+        dest="logfile",
+        type=str,
+        default='',
+        help="Log level to use",
     )
 
-    # send print calls from Jobs and Hooks to log.
-    # Even though there are probably better ways of doing this,
-    # I prefer this one because keeps the track of where print is called
-    # the downside is that the prints are messed up and splitted
-    logger = logging.getLogger()
-    sys.stdout.write = logger.info
+    parser.add_argument(
+        '--color',
+        action="store_const", dest="color", const=True,
+        default=False,
+        help='Print colored output for logs'
+    )
+
+    parser.add_argument(
+        'pipeline',
+        type=str,
+        help='Pipeline name'
+    )
+
+    args = parser.parse_args()
+    loglevel = args.loglevel.upper()
+
+    setup_logging(loglevel, color=args.color, logfile=args.logfile)
 
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
