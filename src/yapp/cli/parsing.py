@@ -26,8 +26,6 @@ config_fields = valid_fields - {"steps"}
 
 dict_fields = ["hooks"]
 
-global_cfg = {}
-
 
 def env_constructor(loader, node):
     """
@@ -325,14 +323,24 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml"):
 
     # read global config
     try:
-        config_yaml = pipelines_yaml.pop("+all")
+        cfg = pipelines_yaml.pop("+all")
     except KeyError:
         logging.debug("'+all' not found: no global configuration defined.")
-        config_yaml = {}
+        cfg = {}
 
     logging.debug("Starting config merge")
     logging.debug(f"Pipeline config: {pipeline_cfg}")
-    logging.debug(f"Global config: {config_yaml}")
+    logging.debug(f"Global config: {cfg}")
+
+    # used to merge fields from specific and global configurations
+    def merge_field(A: dict, B: dict, field: str) -> dict:
+        """
+        Appends the list B[field] to the list A[field] and returns A
+        """
+        A[field] = A.get(field, [])
+        b_list = B.get(field, [])
+        A[field] += b_list
+        return A
 
     # overwrite global with pipeline specific
     for field in config_fields:
@@ -342,25 +350,24 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml"):
             f'pipeline field: {pipeline_cfg[field] if field in pipeline_cfg else "missing"}'
         )
         logging.debug(
-            f'global field: {config_yaml[field] if field in config_yaml else "missing"}'
+            f'global field: {cfg[field] if field in cfg else "missing"}'
         )
         if field in dict_fields:
-            config_yaml[field] = config_yaml.get(field, {})
+            cfg[field] = cfg.get(field, {})
             pipeline_cfg[field] = pipeline_cfg.get(field, {})
-            # TODO should merge or replace?
-            config_yaml[field].update(pipeline_cfg[field])
+            for subfield in pipeline_cfg[field]:
+                cfg[field] = merge_field(cfg[field], pipeline_cfg[field], subfield)
+            cfg[field].update(pipeline_cfg[field])
         else:
-            config_yaml[field] = config_yaml.get(field, [])
-            pipeline_cfg[field] = pipeline_cfg.get(field, [])
-            for value in pipeline_cfg[field]:
-                config_yaml[field].append(value)
-        logging.debug(f"merged field: {config_yaml[field]}")
-    logging.debug(f"Merged pipeline config: {config_yaml}")
+            cfg = merge_field(cfg, pipeline_cfg, field)
+        logging.debug(f"merged field: {cfg[field]}")
+
+    logging.debug(f"Merged pipeline config: {cfg}")
 
     # Building objects
-    inputs = build_inputs(pipeline_name, config_yaml["inputs"], config_yaml["expose"])
-    outputs = build_outputs(pipeline_name, config_yaml["outputs"])
-    hooks = build_hooks(pipeline_name, config_yaml["hooks"])
+    inputs = build_inputs(pipeline_name, cfg["inputs"], cfg["expose"])
+    outputs = build_outputs(pipeline_name, cfg["outputs"])
+    hooks = build_hooks(pipeline_name, cfg["hooks"])
     pipeline = build_pipeline(
         pipeline_name, pipeline_cfg, inputs=inputs, outputs=outputs, hooks=hooks
     )

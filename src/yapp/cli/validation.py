@@ -133,35 +133,3 @@ def validate(definitions):
     validator.validate(definitions)
 
     return validator.errors
-
-
-def validate(validator, schema, definitions, allow_unknown=False):
-    """
-    Validate a level of the configuration
-    """
-    if allow_unknown:
-        validator.schema = {}
-        validator.allow_unknown = {"type": "dict", "schema": schema}
-    else:
-        validator.schema = schema
-        validator.allow_unknown = False
-
-    validator.validate(definitions)
-
-
-def pipelines_schema_validation(definitions):
-    """
-    Validate schema for definitions from pipelines.yml file
-    """
-    v = Validator(error_handler=ErrorHandler)
-    validate(v, pipeline_schema, definitions, allow_unknown=True)
-    return v.errors
-
-
-def config_schema_validation(definitions):
-    """
-    Validate schema for definitions from config.yml file
-    """
-    v = Validator(error_handler=ErrorHandler)
-    validate(v, pipeline_schema, definitions, allow_unknown=False)
-    return v.errors
