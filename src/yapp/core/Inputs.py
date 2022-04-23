@@ -16,8 +16,8 @@ class Inputs(AttrDict):
             self.register(source.__class__.__name__, source)
 
     def __str__(self):
-        keys = set(self.keys()) - {'exposed'}
-        return f'<yapp inputs {len(self)} {keys}>'
+        keys = set(self.keys()) - {"exposed"}
+        return f"<yapp inputs {len(self)} {keys}>"
 
     def __len__(self):
         return super().__len__() + len(self.exposed) - 1  # skip exposed
@@ -43,11 +43,11 @@ class Inputs(AttrDict):
 
     def __setitem__(self, key, value):
         if key in self.exposed:
-            raise ValueError('Cannot assign to exposed input from adapter')
+            raise ValueError("Cannot assign to exposed input from adapter")
         super().__setitem__(key, value)
 
     def merge(self, d: dict):
-        logging.debug(f'Merging {list(d.keys())} into inputs')
+        logging.debug(f"Merging {list(d.keys())} into inputs")
         self.__dict__.update(d)
         return self
 

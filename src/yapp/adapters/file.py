@@ -16,6 +16,6 @@ class CsvInput(InputAdapter):
         self.other_kwargs = other_kwargs
 
     def get(self, filename: str):
-        if not filename.endswith('.csv'):
-            filename += '.csv'
+        if not filename.endswith(".csv"):
+            filename += ".csv"
         return pd.read_csv(join(self.directory, filename), **self.other_kwargs)

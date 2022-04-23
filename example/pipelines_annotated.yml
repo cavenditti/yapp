@@ -1,3 +1,5 @@
+# TODO global configuration
+
 simple_task:
     # input adapters to use
     inputs:
@@ -40,8 +42,6 @@ simple_task:
         - Later.print_something: MainTask
 
 sligthly_more_complex :
-    # inputs and outputs can be also specified in a separate
-    # config.yaml file
     inputs:
       - pgsql.PgSqlInput:
           username: carlo

@@ -5,6 +5,7 @@ class Job(ABC):
     """
     Job represents a step in our pipeline
     """
+
     def __init__(self, pipeline):
         self.pipeline = pipeline
 

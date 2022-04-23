@@ -15,20 +15,17 @@ class Pipeline:
     """
 
     # list of valid hooks for a Pipeline
-    _valid_hooks = ["on_pipeline_start", "on_pipeline_finish", "on_job_start", "on_job_finish"]
+    _valid_hooks = [
+        "on_pipeline_start",
+        "on_pipeline_finish",
+        "on_job_start",
+        "on_job_finish",
+    ]
 
     # used to keep track of nested levels in logs
     __nested_timed_calls = 0
 
-
-    def __init__(
-        self,
-        job_list,
-        name="",
-        inputs=Inputs(),
-        outputs=[],
-        **hooks
-    ):
+    def __init__(self, job_list, name="", inputs=Inputs(), outputs=[], **hooks):
 
         if name:
             self.name = name
@@ -37,7 +34,9 @@ class Pipeline:
         logging.debug(f"Creating pipeline {self.name}")
 
         self.job_list = job_list
-        logging.debug(f"Jobs for {self.name}: {' -> '.join([job.__name__ for job in self.job_list])}")
+        logging.debug(
+            f"Jobs for {self.name}: {' -> '.join([job.__name__ for job in self.job_list])}"
+        )
 
         # inputs and outputs
         self.inputs = inputs
@@ -95,7 +94,7 @@ class Pipeline:
         # Increase nesting level
         self.__nested_timed_calls += 1
         # TODO find some better idea for this
-        prefix = '>' if self.__nested_timed_calls < 3 else ''
+        prefix = ">" if self.__nested_timed_calls < 3 else ""
 
         logging.info(f"{prefix} Starting {typename} {name}")
         start = datetime.now()

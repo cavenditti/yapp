@@ -16,9 +16,9 @@ class FunctionWrapperInputAdapter(InputAdapter):
         return self.fn(name, *self.args, **self.kwargs)
 
 
-for fn_name in [a for a in dir(pd) if a.startswith('read_')]:
+for fn_name in [a for a in dir(pd) if a.startswith("read_")]:
     fn = pd.__getattribute__(fn_name)
 
-    Adapter = type(fn_name, (FunctionWrapperInputAdapter), {'fn': fn})
+    Adapter = type(fn_name, (FunctionWrapperInputAdapter), {"fn": fn})
 
     setattr(module, fn_name, Adapter)
