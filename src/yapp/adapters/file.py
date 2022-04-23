@@ -1,5 +1,6 @@
-import pandas as pd
 from os.path import join
+
+import pandas as pd
 
 from yapp import InputAdapter
 

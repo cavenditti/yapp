@@ -1,17 +1,17 @@
-import yaml
 import graphlib
 import importlib.util
-import os
-import types
 import inspect
-import re
 import logging
+import os
+import re
+import types
 from types import MethodType
 
-from yapp.core import Pipeline, Job, Inputs
+import yaml
+
 from yapp import ConfigurationError
 from yapp.cli.validation import validate
-
+from yapp.core import Inputs, Job, Pipeline
 
 # Valid pipeline fields
 valid_fields = {

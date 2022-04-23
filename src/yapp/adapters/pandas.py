@@ -1,4 +1,5 @@
 import sys
+
 import pandas as pd
 
 from yapp.core import InputAdapter

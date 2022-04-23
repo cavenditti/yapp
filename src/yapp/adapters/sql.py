@@ -1,5 +1,6 @@
-import pandas as pd
 import logging
+
+import pandas as pd
 
 from yapp import InputAdapter, OutputAdapter
 

@@ -1,7 +1,8 @@
 import logging
+import re
+
 from cerberus import Validator
 from cerberus.errors import BasicErrorHandler
-import re
 
 from yapp import Pipeline
 

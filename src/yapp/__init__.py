@@ -1,4 +1,4 @@
-from .core import Pipeline, Job, Inputs, InputAdapter, OutputAdapter
+from .core import InputAdapter, Inputs, Job, OutputAdapter, Pipeline
 
 __all__ = [
     "core",
