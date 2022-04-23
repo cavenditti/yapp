@@ -12,11 +12,11 @@ simple_task:
   inputs:
     - file.CsvInput:
         directory: "./data"
+    - pandas.read_csv
 
   expose:
-    - file.CsvInput:
-      - "a_csv_file.csv": example_csv
-      - "a_csv_file.csv": example_csv
+    - pandas.read_csv:
+      - "./data/a_csv_file.csv": example_csv
 
   hooks:
     on_job_start:
