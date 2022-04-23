@@ -58,13 +58,12 @@ class LogFormatter(logging.Formatter):
         self.width = width
         self.color = color
 
-
     def get_color(self, loglevel=None):
         """
         Returns the color escape characters to print
         """
         if not self.color:
-            return ''
+            return ""
 
         white = "\x1b[1;37m"
         gray = "\x1b[38;5;247m"
@@ -86,7 +85,6 @@ class LogFormatter(logging.Formatter):
         }
         return FORMATS.get(loglevel, reset)
 
-
     def format(self, record):
         # An ugly hack to prevent printing empty lines from print calls (1/3)
         if not str(record.msg).strip().strip("\n"):
@@ -102,7 +100,7 @@ class LogFormatter(logging.Formatter):
         record.msg = str(record.msg)
         if record.msg.startswith("> "):
             head = self.get_color(record.levelno) + head
-            #record.msg = self.get_color(logging.DEBUG) + record.msg[2:] + self.get_color()
+            # record.msg = self.get_color(logging.DEBUG) + record.msg[2:] + self.get_color()
             record.msg = record.msg[2:] + self.get_color()
         else:
             head = self.get_color(record.levelno) + head + self.get_color()
@@ -111,7 +109,7 @@ class LogFormatter(logging.Formatter):
         return "%s %s\n" % (head, record.msg.lstrip())
 
 
-def setup_logging(loglevel, color=False, logfile=''):
+def setup_logging(loglevel, color=False, logfile=""):
     # setup colored output
 
     logger = logging.getLogger()
@@ -123,7 +121,7 @@ def setup_logging(loglevel, color=False, logfile=''):
 
     stream_handlers = [(logging.StreamHandler(), color)]
     if logfile:
-        stream_handlers.append( (logging.FileHandler(logfile), False) )
+        stream_handlers.append((logging.FileHandler(logfile), False))
 
     # An ugly hack to prevent printing empty lines from print calls (3/3)
     for pair in stream_handlers:
@@ -133,7 +131,6 @@ def setup_logging(loglevel, color=False, logfile=''):
         formatter = LogFormatter(color=color)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
-
 
     # send print calls from Jobs and Hooks to log.
     # Even though there are probably better ways of doing this,
