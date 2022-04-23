@@ -200,7 +200,12 @@ def create_adapter(pipeline_name, adapter_def):
     adapter_class = getattr(module, adapter_name)
 
     # instantiate adapter and return it
-    return adapter_class(**params)
+    logging.debug(params)
+    try:
+        args = params.pop('+args')
+    except KeyError:
+        args = []
+    return adapter_class(*args, **params)
 
 
 def build_inputs(pipeline_name, cfg_inputs, cfg_expose):
