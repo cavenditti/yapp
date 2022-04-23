@@ -1,5 +1,7 @@
 import logging
 import sys
+import traceback
+from io import StringIO
 
 
 def addLoggingLevel(levelName, levelNum, methodName=None):
@@ -85,6 +87,19 @@ class LogFormatter(logging.Formatter):
         }
         return FORMATS.get(loglevel, reset)
 
+    def formatException(self, exc_info):
+        with StringIO() as tb_str_io:
+            traceback.print_tb(exc_info[2], file=tb_str_io)
+            tb_str = tb_str_io.getvalue()
+        return (
+            exc_info[0].__name__
+            + ": "
+            + exc_info[1].args[0]
+            + "\n"
+            + self.get_color()
+            + tb_str
+        )
+
     def format(self, record):
         # An ugly hack to prevent printing empty lines from print calls (1/3)
         if not str(record.msg).strip().strip("\n"):
@@ -98,6 +113,10 @@ class LogFormatter(logging.Formatter):
         head = "%s %s.%s" % (levelname[:1], record.module, record.funcName)
         head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
         record.msg = str(record.msg)
+
+        if record.exc_info:
+            record.msg = "> " + self.formatException(record.exc_info)
+
         if record.msg.startswith("> "):
             head = self.get_color(record.levelno) + head
             # record.msg = self.get_color(logging.DEBUG) + record.msg[2:] + self.get_color()
@@ -123,9 +142,9 @@ def setup_logging(loglevel, color=False, logfile=""):
     if logfile:
         stream_handlers.append((logging.FileHandler(logfile), False))
 
-    # An ugly hack to prevent printing empty lines from print calls (3/3)
     for pair in stream_handlers:
         stream_handler, color = pair
+        # An ugly hack to prevent printing empty lines from print calls (3/3)
         stream_handler.terminator = ""
         stream_handler.setLevel(getattr(logging, loglevel))
         formatter = LogFormatter(color=color)
