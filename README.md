@@ -16,9 +16,10 @@ pip install yapp-pipelines
 
 ## Usage
 
-Pipelines are described using yaml files:
- - `pipelines.yml` defines the pipelines [required]
- - `config.yml`		defines a global configuration (e.g. inputs and outputs) for all pipelines. Not implemented yet.
+Pipelines are described using in a `pipelines.yml` yaml file.
+This file contains the pipelines definitions and an optional global config for all the pipelines.
+
+For a complete overview on how to define pipelines se the documentation in the wiki. [coming soon]
 
 A Pipeline is made up of Jobs.
 A Job represents a step of the pipeline, it takes inputs as parameters and returns a dict of outputs.
@@ -50,7 +51,7 @@ It searches in, in order:
  - [x] Package
  - [ ] A good and working example
  - [x] hooks
- - [ ] Working global config for multiple pipelines
+ - [x] kinda working global config for multiple pipelines
 
 ### Possibly lower priority
  - TESTS.

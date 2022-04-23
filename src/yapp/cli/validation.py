@@ -21,7 +21,7 @@ def check_code_reference(field, value, error):
     Check if a string can be a valid python module or function reference
     """
     # Very very compact, tpye check and regex
-    if type(value) != str or (
+    if type(value) is not str or (
         not re.match(r'^[a-zA-Z_.][a-zA-Z0-9_.]*[\.[a-zA-Z_.]+[a-zA-Z0-9_.]*]*$', value)):
         error(field, f'{value} is not a valid reference string')
 
@@ -30,17 +30,17 @@ def check_step(field, value, error):
     """
     Ugly "step" definition checker
     """
-    if type(value) == dict:
+    if type(value) is dict:
         if len(value) != 1:
             error(field, f'Invalid step definition for {next(iter(value))}')
             error(field, 'Steps must have 1 single value: the step dependencies')
         deps = next(iter(value.values()))
-        if type(deps) == list:
+        if type(deps) is list:
             for dep in deps:
                 check_code_reference(field, dep, error)
-        elif type(deps) == str:
+        elif type(deps) is str:
                 check_code_reference(field, deps, error)
-    elif type(value) == str:
+    elif type(value) is str:
         check_code_reference(field, value, error)
     else:
         error(field, "Should be of type 'str' or 'dict'")
@@ -51,7 +51,7 @@ def check_adapter(field, value, error):
     """
     Ugly "adapter" definition checker
     """
-    if type(value) == dict and len(value) > 1:
+    if type(value) is dict and len(value) > 1:
         error(field, 'Probably missing indent for object parameters')
         error(field, f'Invalid adapter definition for {next(iter(value))}')
     elif type(value) not in [str, dict]:
@@ -66,15 +66,15 @@ def check_expose(field, value, error):
     if len(value) != 1:
         error(field, f'Invalid expose definition for {next(iter(value))}')
     expose_list = next(iter(value.values()))
-    if type(expose_list) != list:
+    if type(expose_list) is not list:
         error(field, f'Expecting list of exposed values')
     for expose_dict in expose_list:
-        if len(expose_dict) != 1:
+        if len(expose_dict) is not 1:
             error(field, f'Too many fields in expose for {next(iter(expose_dict))}')
         a,b = next(iter(expose_dict.items()))
-        if type(a) != str:
+        if type(a) is not str:
             error(field, f'Expecting string, not {a}')
-        if type(b) != str:
+        if type(b) is not str:
             error(field, f'Expecting string, not {b}')
 
 
