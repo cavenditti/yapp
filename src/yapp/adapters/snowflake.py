@@ -4,6 +4,10 @@ from .sql import SqlInput
 
 
 class SnowflakeInput(SqlInput):
+    """
+    Very simple PostgreSQL input adapter
+    """
+
     def __init__(
         self, *, username, password, account, database, schema=None, where_clause=None
     ):

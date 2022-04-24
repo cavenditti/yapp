@@ -8,8 +8,8 @@ class DummyInput(InputAdapter):
     Dummy input adapter that always returns an empty DataFrame
     """
 
-    def get(self, name):
-        return pd.DataFrame
+    def get(self, _):
+        return pd.DataFrame()
 
 
 class DummyOutput(OutputAdapter):

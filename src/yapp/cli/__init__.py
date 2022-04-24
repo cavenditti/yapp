@@ -1,11 +1,21 @@
+"""
+yapp cli parsing
+"""
+
 import argparse
+import inspect
 import logging
+import sys
 
 from yapp.cli.logs import setup_logging
 from yapp.cli.parsing import create_pipeline
 
 
 def main():
+    """
+    yapp cli entrypoint
+    """
+
     parser = argparse.ArgumentParser(description="Run yapp pipeline")
 
     parser.add_argument(
@@ -64,24 +74,23 @@ def main():
     # Read configuration and create a new pipeline
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
-    except Exception as e:
-        logging.exception(e)
-        exit(-1)
+    except Exception as error:   # pylint: disable=broad-except
+        logging.exception(error)
+        sys.exit(-1)
 
     # Run the pipeline
     try:
         pipeline()
-    except Exception as e:
-        import inspect
+    except Exception as error:   # pylint: disable=broad-except
 
-        logging.exception(e)
-        logging.debug(f"pipeline.inputs: {pipeline.inputs.__repr__()}")
-        logging.debug(f"pipeline.outputs: {pipeline.outputs}")
-        logging.debug(f"pipeline.job_list: {pipeline.job_list}")
+        logging.exception(error)
+        logging.debug("pipeline.inputs: %s", pipeline.inputs.__repr__())
+        logging.debug("pipeline.outputs: %s", pipeline.outputs)
+        logging.debug("pipeline.job_list: %s", pipeline.job_list)
         for job in pipeline.job_list:
             args = inspect.getfullargspec(job.execute).args
-            logging.debug(f"{job}.execute arguments: {args}")
-        exit(-1)
+            logging.debug("%s.execute arguments: %s", job, args)
+        sys.exit(-1)
 
 
 if __name__ == "__main__":

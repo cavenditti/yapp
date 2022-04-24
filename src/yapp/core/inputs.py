@@ -1,7 +1,6 @@
 import logging
-from abc import ABC, abstractmethod
 
-from .AttrDict import AttrDict
+from .attr_dict import AttrDict
 
 
 class Inputs(AttrDict):
@@ -9,9 +8,11 @@ class Inputs(AttrDict):
     Inputs implementation (just AttrDict with some utility methods)
     """
 
-    def __init__(self, *args, sources=[], **kwargs):
+    def __init__(self, *args, sources=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.exposed = {}  # mapping name to source
+        if not sources:
+            return
         for source in sources:
             self.register(source.__class__.__name__, source)
 
@@ -24,19 +25,18 @@ class Inputs(AttrDict):
 
     def __getitem__(self, key):
         try:
-            logging.debug(f'Using input "{key}"')
+            logging.debug('Using input "%s"', key)
             # if it's an exposed resource from an adapter return it
             if key in self.exposed:
                 source, name = self.exposed[key]
                 return self[source].get(name)
-            else:
-                return super().__getitem__(key)
-        except KeyError as e:
-            logging.debug(f'{self.__repr__()} Trying to load missing input "{key}"')
+            return super().__getitem__(key)
+        except KeyError as error:
+            logging.debug('%s Trying to load missing input "%s"', self.__repr__(), key)
             if key in self.exposed:
                 source, name = self.exposed[key]
-                logging.debug(f'"{name}" exposed by "{source}" as "{key}"')
-            raise KeyError(f'Trying to load missing input "{key}", {e}')
+                logging.debug('"%s" exposed by "%s" as "%s"', name, source, key)
+            raise KeyError(f'Trying to load missing input "{key}"') from error
 
     def __getattr__(self, key):
         return self[key]
@@ -46,24 +46,27 @@ class Inputs(AttrDict):
             raise ValueError("Cannot assign to exposed input from adapter")
         super().__setitem__(key, value)
 
-    def merge(self, d: dict):
-        logging.debug(f"Merging {list(d.keys())} into inputs")
-        self.__dict__.update(d)
+    def merge(self, other: dict):
+        """
+        Merges new input into current object
+        """
+        logging.debug("Merging %s into inputs", list(other.keys()))
+        self.__dict__.update(other)
         return self
 
-    def __or__(self, d):
-        return self.merge(d)  # TODO union operator should not work in place
+    def __or__(self, other):
+        return self.merge(other)  # TODO union operator should not work in place
 
     def register(self, name: str, adapter):
         """
         New input adapter (just a new Item)
         """
         self[name] = adapter
-        logging.info(f'Registered new input source: "{name}"')
+        logging.info('Registered new input source: "%s"', name)
 
     def expose(self, source, internal_name, name):
         """
         Expose input attribute using another name
         """
         self.exposed[name] = (source, internal_name)
-        logging.info(f'Exposed "{internal_name}" from "{source}" as "{name}"')
+        logging.info('Exposed "%s" from "%s" as "%s"', internal_name, source, name)

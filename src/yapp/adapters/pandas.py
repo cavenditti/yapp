@@ -8,6 +8,9 @@ module = sys.modules[__name__]
 
 
 class FunctionWrapperInputAdapter(InputAdapter):
+    """
+    Very hacky generic input adapter
+    """
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs

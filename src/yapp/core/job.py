@@ -11,6 +11,9 @@ class Job(ABC):
 
     @property
     def name(self):
+        """
+        Helper to return the name of the class
+        """
         return self.__class__.__name__
 
     def __str__(self):
@@ -18,8 +21,13 @@ class Job(ABC):
 
     @abstractmethod
     def execute(self, *inputs):
-        pass
+        """
+        Job entrypoint
+        """
 
     @property
     def config(self):
+        """
+        Shortcut for self.pipeline.config
+        """
         return self.pipeline.config

@@ -4,15 +4,15 @@ import traceback
 from io import StringIO
 
 
-def addLoggingLevel(levelName, levelNum, methodName=None):
+def add_logging_level(level_name, level_num, method_name=None):
     """
     Comprehensively adds a new logging level to the `logging` module and the
     currently configured logging class.
 
-    `levelName` becomes an attribute of the `logging` module with the value
-    `levelNum`. `methodName` becomes a convenience method for both `logging`
+    `level_name` becomes an attribute of the `logging` module with the value
+    `level_num`. `method_name` becomes a convenience method for both `logging`
     itself and the class returned by `logging.getLoggerClass()` (usually just
-    `logging.Logger`). If `methodName` is not specified, `levelName.lower()` is
+    `logging.Logger`). If `method_name` is not specified, `level_name.lower()` is
     used.
 
     To avoid accidental clobberings of existing attributes, this method will
@@ -21,7 +21,7 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
 
     Example
     -------
-    >>> addLoggingLevel('TRACE', logging.DEBUG - 5)
+    >>> add_logging_level('TRACE', logging.DEBUG - 5)
     >>> logging.getLogger(__name__).setLevel("TRACE")
     >>> logging.getLogger(__name__).trace('that worked')
     >>> logging.trace('so did this')
@@ -29,36 +29,40 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
     5
 
     """
-    if not methodName:
-        methodName = levelName.lower()
+    if not method_name:
+        method_name = level_name.lower()
 
-    if hasattr(logging, levelName):
-        raise AttributeError("{} already defined in logging module".format(levelName))
-    if hasattr(logging, methodName):
-        raise AttributeError("{} already defined in logging module".format(methodName))
-    if hasattr(logging.getLoggerClass(), methodName):
-        raise AttributeError("{} already defined in logger class".format(methodName))
+    if hasattr(logging, level_name):
+        raise AttributeError(f"{level_name} already defined in logging module")
+    if hasattr(logging, method_name):
+        raise AttributeError(f"{method_name} already defined in logging module")
+    if hasattr(logging.getLoggerClass(), method_name):
+        raise AttributeError(f"{method_name} already defined in logger class")
 
     # This method was inspired by the answers to Stack Overflow post
     # http://stackoverflow.com/q/2183233/2988730, especially
     # http://stackoverflow.com/a/13638084/2988730
-    def logForLevel(self, message, *args, **kwargs):
-        if self.isEnabledFor(levelNum):
-            self._log(levelNum, message, args, **kwargs)
+    def log_for_level(self, message, *args, **kwargs):
+        if self.isEnabledFor(level_num):
+            self._log(level_num, message, args, **kwargs)   # pylint: disable=protected-access
 
-    def logToRoot(message, *args, **kwargs):
-        logging.log(levelNum, message, *args, **kwargs)
+    def log_to_root(message, *args, **kwargs):
+        logging.log(level_num, message, *args, **kwargs)
 
-    logging.addLevelName(levelNum, levelName)
-    setattr(logging, levelName, levelNum)
-    setattr(logging.getLoggerClass(), methodName, logForLevel)
-    setattr(logging, methodName, logToRoot)
+    logging.addLevelName(level_num, level_name)
+    setattr(logging, level_name, level_num)
+    setattr(logging.getLoggerClass(), method_name, log_for_level)
+    setattr(logging, method_name, log_to_root)
 
 
 class LogFormatter(logging.Formatter):
+    """
+    Custom LogFormatter, probably not the best way at all to do this but was fun doing it this way.
+    """
     def __init__(self, width=26, color=False):
         self.width = width
         self.color = color
+        super().__init__()
 
     def get_color(self, loglevel=None):
         """
@@ -76,16 +80,16 @@ class LogFormatter(logging.Formatter):
         red = "\x1b[31;1m"
         reset = "\x1b[0m"
 
-        FORMATS = {
+        formats = {
             logging.DEBUG: white,
             logging.INFO: blue,
-            logging.OK: green,
-            logging.PRINT: gray,
+            logging.OK: green,   # pylint: disable=no-member
+            logging.PRINT: gray,   # pylint: disable=no-member
             logging.WARNING: yellow,
             logging.ERROR: red,
             logging.CRITICAL: red,
         }
-        return FORMATS.get(loglevel, reset)
+        return formats.get(loglevel, reset)
 
     def formatException(self, exc_info):
         with StringIO() as tb_str_io:
@@ -110,9 +114,9 @@ class LogFormatter(logging.Formatter):
             record.funcName = record.funcName[:10] + "…"
         levelname = record.levelname[:1]
         lineno = str(record.lineno)
-        head = "%s %s.%s" % (levelname[:1], record.module, record.funcName)
+        head = f"{levelname[:1]} {record.module}.{record.funcName}"
         head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
-        record.msg = str(record.msg)
+        record.msg = str(record.msg) % record.args
 
         if record.exc_info:
             record.msg = "> " + self.formatException(record.exc_info)
@@ -125,31 +129,33 @@ class LogFormatter(logging.Formatter):
             head = self.get_color(record.levelno) + head + self.get_color()
 
         # An ugly hack to prevent printing empty lines from print calls (2/3)
-        return "%s %s\n" % (head, record.msg.lstrip())
+        return f"{head} {record.msg.lstrip()}\n"
 
 
 def setup_logging(loglevel, color=False, logfile=""):
-    # setup colored output
+    """
+    Setup logging for yapp
+    """
 
     logger = logging.getLogger()
 
-    addLoggingLevel("OK", 21)
-    addLoggingLevel("PRINT", 22)
+    add_logging_level("OK", 23)
+    add_logging_level("PRINT", 22)
 
     logger.setLevel(logging.DEBUG)
 
-    stream_handlers = [(logging.StreamHandler(), color)]
+    handlers = [(logging.StreamHandler(), color)]
     if logfile:
-        stream_handlers.append((logging.FileHandler(logfile), False))
+        handlers.append((logging.FileHandler(logfile), False))
 
-    for pair in stream_handlers:
-        stream_handler, color = pair
+    for pair in handlers:
+        handler, color = pair
         # An ugly hack to prevent printing empty lines from print calls (3/3)
-        stream_handler.terminator = ""
-        stream_handler.setLevel(getattr(logging, loglevel))
+        handler.terminator = ""
+        handler.setLevel(getattr(logging, loglevel))
         formatter = LogFormatter(color=color)
-        stream_handler.setFormatter(formatter)
-        logger.addHandler(stream_handler)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     # send print calls from Jobs and Hooks to log.
     # Even though there are probably better ways of doing this,

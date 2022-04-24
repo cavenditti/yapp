@@ -11,10 +11,12 @@ class InputAdapter(ABC):
 
     @abstractmethod
     def get(self, key):
-        pass
+        """
+        Returns the requested input
+        """
 
     def __getattr__(self, key):
-        logging.debug(f'Loading input from {self.__class__.__name__}: "{key}"')
+        logging.debug('Loading input from %s: "%s"', self.__class__.__name__, key)
         return self.get(key)
 
     def __getitem__(self, key):

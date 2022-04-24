@@ -11,8 +11,10 @@ class OutputAdapter(ABC):
 
     @abstractmethod
     def save(self, key, data):
-        pass
+        """
+        Save data here
+        """
 
     def __setitem__(self, key, data):
-        logging.debug(f'Saving output to {self.__class__.__name__}: "{key}"')
+        logging.debug('Saving output to %s: "%s"', self.__class__.__name__, key)
         return self.save(key, data)

@@ -1,12 +1,9 @@
 import inspect
-import json
 import logging
 from datetime import datetime
 
-from .AttrDict import AttrDict
-from .Inputs import Inputs
-from .Job import Job
-from .OutputAdapter import OutputAdapter
+from .attr_dict import AttrDict
+from .inputs import Inputs
 
 
 class Pipeline:
@@ -15,7 +12,7 @@ class Pipeline:
     """
 
     # list of valid hooks for a Pipeline
-    _valid_hooks = [
+    valid_hooks = [
         "on_pipeline_start",
         "on_pipeline_finish",
         "on_job_start",
@@ -25,33 +22,36 @@ class Pipeline:
     # used to keep track of nested levels in logs
     __nested_timed_calls = 0
 
-    def __init__(self, job_list, name="", inputs=Inputs(), outputs=[], **hooks):
+    def __init__(self, job_list, name="", inputs=None, outputs=None, **hooks):
 
         if name:
             self.name = name
         else:
             self.name = self.__class__.__name__
-        logging.debug(f"Creating pipeline {self.name}")
+        logging.debug("Creating pipeline %s", self.name)
 
         self.job_list = job_list
         logging.debug(
-            f"Jobs for {self.name}: {' -> '.join([job.__name__ for job in self.job_list])}"
+            "Jobs for %s: %s",
+            self.name,
+            " -> ".join([job.__name__ for job in self.job_list]),
         )
 
         # inputs and outputs
-        self.inputs = inputs
-        self.outputs = outputs
-        logging.debug(f"Inputs for {self.name}: {self.inputs}")
-        logging.debug(f"Outputs for {self.name}: {self.outputs}")
+        self.inputs = inputs if inputs else Inputs()
+        self.outputs = outputs if outputs else []
+        logging.debug("Inputs for %s: %s", self.name, self.inputs)
 
         # hooks
         # Hook names should be checked inside yapp.cli,
         # there should never be an invalid name here
         # but we're being cautious anyway
-        logging.debug(f"Hooks for {self.name}: {hooks}")
-        for hook_name in Pipeline._valid_hooks:
+        logging.debug("Hooks for %s: %s", self.name, hooks)
+        for hook_name in Pipeline.valid_hooks:
             if hook_name in hooks:
-                logging.debug(f"Adding {len(hooks[hook_name])} hooks for {hook_name}")
+                logging.debug(
+                    "Adding %s hooks for %s", len(hooks[hook_name]), hook_name
+                )
                 new_hooks = hooks[hook_name]
             else:
                 new_hooks = []
@@ -74,8 +74,7 @@ class Pipeline:
         """
         if self.current_job:
             return self.current_job.name
-        else:
-            return None
+        return None
 
     def run_hook(self, hook_name):
         """
@@ -87,7 +86,7 @@ class Pipeline:
             self.timed(f"{hook_name} hook", hook.__name__, hook, self)
 
     # TODO this could be a decorator
-    def timed(self, typename, name, fn, *args, **kwargs):
+    def timed(self, typename, name, func, *args, **kwargs):
         """
         Timed execution of a function, logging times
         """
@@ -96,11 +95,13 @@ class Pipeline:
         # TODO find some better idea for this
         prefix = ">" if self.__nested_timed_calls < 3 else ""
 
-        logging.info(f"{prefix} Starting {typename} {name}")
+        logging.info("%s Starting %s %s", prefix, typename, name)
         start = datetime.now()
-        out = fn(*args, **kwargs)
+        out = func(*args, **kwargs)
         end = datetime.now()
-        logging.ok(f"{prefix} Completed {typename} {name} (elapsed: {end-start})")
+        logging.log(logging.INFO + 3,  # just a little more than INFO (and custom print)
+            "%s Completed %s %s (elapsed: %s)", prefix, typename, name, end - start
+        )
 
         # Decrease nesting level
         self.__nested_timed_calls -= 1
@@ -113,17 +114,20 @@ class Pipeline:
 
         # Get arguments used in the execute function
         args = inspect.getfullargspec(job.execute).args[1:]
-        logging.debug(f"Required inputs for {job.name}: {args}")
+        logging.debug("Required inputs for %s: %s", job.name, args)
 
         self.run_hook("on_job_start")
 
         # call execute with right inputs
-        # TODO exception handling
+        #
+        # TODO exception handling is done at cli level for now
+        # but here would definetly be a better choice
         last_output = job.execute(*[self.inputs[i] for i in args])
-        logging.debug(f"{job.name} run successfully")
+        logging.debug("%s run successfully", job.name)
         logging.debug(
-            f"""{job.name} returned {list(last_output.keys()) if last_output else
-                last_output}"""
+            "%s returned %s",
+            job.name,
+            list(last_output.keys()) if last_output else last_output,
         )
 
         self.run_hook("on_job_finish")
@@ -139,7 +143,7 @@ class Pipeline:
         """
         for output in self.outputs:
             output.save(name, data)
-            logging.info(f"saved {name} output to {output}")
+            logging.info("saved %s output to %s", name, output)
 
     def _run(self):
         """
@@ -148,7 +152,7 @@ class Pipeline:
         self.run_hook("on_pipeline_start")
 
         for job_class in self.job_list:
-            logging.debug(f'Instantiating new job from "{job_class}"')
+            logging.debug('Instantiating new job from "%s"', job_class)
             job_obj = job_class(self)
             self.current_job = job_obj
             self.timed("job", job_obj.name, self._run_job, job_obj)
@@ -167,13 +171,11 @@ class Pipeline:
 
         # Check if something is missing
         if not self.inputs:
-            logging.warning(f"Missing inputs for pipeline {self.name}")
-            # raise ValueError(f'Missing inputs for pipeline {self.name}')
+            logging.warning("Missing inputs for pipeline %s", self.name)
         if not self.outputs:
-            logging.warning(f"Missing outputs for pipeline {self.name}")
-            # raise ValueError(f'Missing output for pipeline {self.name}')
+            logging.warning("Missing outputs for pipeline %s", self.name)
 
         if config:  # config shorthand, just another input
-            self.input.config = AttrDict(config)
+            self.inputs.config = AttrDict(config)
 
         self.timed("pipeline", self.name, self._run)

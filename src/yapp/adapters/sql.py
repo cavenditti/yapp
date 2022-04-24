@@ -21,7 +21,7 @@ class SqlInput(InputAdapter):
         schema = self.schema + "." if self.schema else ""
         where_clause = " where " + self.where_clause if self.where_clause else ""
         query = f"select * from {schema}{table_name}{where_clause}"
-        logging.debug(f'Using query: "{query}"')
+        logging.debug('Using query: "%s"', query)
         return pd.read_sql(query, self.conn)
 
 
@@ -32,10 +32,10 @@ class SqlOutput(OutputAdapter):
     Output adapter for SQL databases, a pandas DataFrame is written to a table
     """
 
-    def __init__(self, conn, schema=None, extra_fields: dict = {}):
+    def __init__(self, conn, schema=None, extra_fields: dict = None):
         self.conn = conn
         self.schema = schema
-        self.extra_fields = extra_fields
+        self.extra_fields = extra_fields if extra_fields else {}
 
     def save(self, table_name, data):
         for field, value in self.extra_fields.items():

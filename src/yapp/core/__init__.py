@@ -1,9 +1,13 @@
-from .AttrDict import AttrDict
-from .InputAdapter import InputAdapter
-from .Inputs import Inputs
-from .Job import Job
-from .OutputAdapter import OutputAdapter
-from .Pipeline import Pipeline
+"""
+yapp core classes
+"""
+
+from .attr_dict import AttrDict
+from .input_adapter import InputAdapter
+from .inputs import Inputs
+from .job import Job
+from .output_adapter import OutputAdapter
+from .pipeline import Pipeline
 
 __all__ = [
     "AttrDict",

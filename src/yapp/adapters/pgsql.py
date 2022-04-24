@@ -4,6 +4,9 @@ from .sql import SqlInput, SqlOutput
 
 
 class PgSqlInput(SqlInput):
+    """
+    Very simple PostgreSQL input adapter
+    """
     def __init__(
         self,
         *,
@@ -22,6 +25,9 @@ class PgSqlInput(SqlInput):
 
 
 class PgSqlOutput(SqlOutput):
+    """
+    Very simple PostgreSQL ouput adapter
+    """
     def __init__(self, *, username, password, host, port, database, schema=None):
         connection = connect(
             user=username, password=password, host=host, port=port, dbname=database
