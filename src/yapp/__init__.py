@@ -1,9 +1,8 @@
 """
 yapp — Yet Another Python (data) Pipeline
 """
-import logging
-
 from .core import InputAdapter, Inputs, Job, OutputAdapter, Pipeline
+from ._version import version
 
 __all__ = [
     "core",
@@ -15,3 +14,5 @@ __all__ = [
     "InputAdapter",
     "OutputAdapter",
 ]
+
+__version__ = version
