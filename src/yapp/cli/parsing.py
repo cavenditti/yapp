@@ -46,7 +46,9 @@ def load_module(pipeline_name, module_name):
     """
     Loads a python module from a .py file or yapp modules
     """
-    logging.debug('Requested module to load "%s" for pipeline "%s"', module_name, pipeline_name)
+    logging.debug(
+        'Requested module to load "%s" for pipeline "%s"', module_name, pipeline_name
+    )
     base_paths = [pipeline_name, "./"]
     # Remove eventual trailing ".py" and split at dots
     ref = re.sub(r"\.py$", "", module_name).split(".")
@@ -121,7 +123,7 @@ def build_job(pipeline_name, step):
         # since the execute function is not going to access self anyway, but we may decide in future
         # to move some logic from Pipeline inside the Job, or add whatever functionality.
         # So doing things this way may make things easier in the future.
-        class ConcreteJob(Job):   # pylint: disable=missing-class-docstring
+        class ConcreteJob(Job):  # pylint: disable=missing-class-docstring
             def execute(self, *inputs):
                 pass
 
@@ -317,7 +319,9 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml"):
     config_errors = validate(pipelines_yaml)
 
     if config_errors:
-        logging.warning("Configuration errors for pipelines: %s", list(config_errors.keys()))
+        logging.warning(
+            "Configuration errors for pipelines: %s", list(config_errors.keys())
+        )
         if pipeline_name in config_errors:
             raise ConfigurationError(config_errors, relevant_field=pipeline_name)
     else:
@@ -353,8 +357,11 @@ def create_pipeline(pipeline_name, path="./", pipelines_file="pipelines.yml"):
     for field in config_fields:
         logging.debug("merging field %s", field)
         # empty dictionaries if missing
-        logging.debug('pipeline field: %s', pipeline_cfg[field] if field in pipeline_cfg else "missing")
-        logging.debug('global field: %s', cfg[field] if field in cfg else "missing")
+        logging.debug(
+            "pipeline field: %s",
+            pipeline_cfg[field] if field in pipeline_cfg else "missing",
+        )
+        logging.debug("global field: %s", cfg[field] if field in cfg else "missing")
         if field in dict_fields:
             cfg[field] = cfg.get(field, {})
             pipeline_cfg[field] = pipeline_cfg.get(field, {})

@@ -74,14 +74,14 @@ def main():
     # Read configuration and create a new pipeline
     try:
         pipeline = create_pipeline(args.pipeline, path=args.path)
-    except Exception as error:   # pylint: disable=broad-except
+    except Exception as error:  # pylint: disable=broad-except
         logging.exception(error)
         sys.exit(-1)
 
     # Run the pipeline
     try:
         pipeline()
-    except Exception as error:   # pylint: disable=broad-except
+    except Exception as error:  # pylint: disable=broad-except
 
         logging.exception(error)
         logging.debug("pipeline.inputs: %s", pipeline.inputs.__repr__())

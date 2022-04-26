@@ -102,8 +102,13 @@ class Pipeline:
         start = datetime.now()
         out = func(*args, **kwargs)
         end = datetime.now()
-        logging.log(Pipeline.OK_LOGLEVEL,
-            "%s Completed %s %s (elapsed: %s)", prefix, typename, name, end - start
+        logging.log(
+            Pipeline.OK_LOGLEVEL,
+            "%s Completed %s %s (elapsed: %s)",
+            prefix,
+            typename,
+            name,
+            end - start,
         )
 
         # Decrease nesting level

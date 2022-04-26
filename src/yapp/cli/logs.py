@@ -49,7 +49,9 @@ def add_logging_level(level_name, level_num, method_name=None):
     # http://stackoverflow.com/a/13638084/2988730
     def log_for_level(self, message, *args, **kwargs):
         if self.isEnabledFor(level_num):
-            self._log(level_num, message, args, **kwargs)   # pylint: disable=protected-access
+            self._log(  # pylint: disable=protected-access
+                level_num, message, args, **kwargs
+            )
 
     def log_to_root(message, *args, **kwargs):
         logging.log(level_num, message, *args, **kwargs)
@@ -64,9 +66,11 @@ class LogFormatter(logging.Formatter):
     """
     Custom LogFormatter, probably not the best way at all to do this but was fun doing it this way.
     """
+
     def __init__(self, width=26, color=False):
         self.width = width
         self.color = color
+        super().__init__()
 
     def get_color(self, loglevel=None):
         """
@@ -87,8 +91,8 @@ class LogFormatter(logging.Formatter):
         formats = {
             logging.DEBUG: white,
             logging.INFO: blue,
-            logging.OK: green,   # pylint: disable=no-member
-            logging.PRINT: gray,   # pylint: disable=no-member
+            logging.OK: green,  # pylint: disable=no-member
+            logging.PRINT: gray,  # pylint: disable=no-member
             logging.WARNING: yellow,
             logging.ERROR: red,
             logging.CRITICAL: red,
