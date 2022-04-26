@@ -11,6 +11,9 @@ class Pipeline:
     Pipeline
     """
 
+    # used for log completed status messages for jobs and pipelines
+    OK_LOGLEVEL = logging.INFO
+
     # list of valid hooks for a Pipeline
     valid_hooks = [
         "on_pipeline_start",
@@ -99,7 +102,7 @@ class Pipeline:
         start = datetime.now()
         out = func(*args, **kwargs)
         end = datetime.now()
-        logging.log(logging.INFO + 3,  # just a little more than INFO (and custom print)
+        logging.log(Pipeline.OK_LOGLEVEL,
             "%s Completed %s %s (elapsed: %s)", prefix, typename, name, end - start
         )
 

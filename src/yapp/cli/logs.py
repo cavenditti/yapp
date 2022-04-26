@@ -3,6 +3,11 @@ import sys
 import traceback
 from io import StringIO
 
+from yapp import Pipeline
+
+OK = 24
+PRINT = 22
+
 
 def add_logging_level(level_name, level_num, method_name=None):
     """
@@ -62,7 +67,6 @@ class LogFormatter(logging.Formatter):
     def __init__(self, width=26, color=False):
         self.width = width
         self.color = color
-        super().__init__()
 
     def get_color(self, loglevel=None):
         """
@@ -116,20 +120,20 @@ class LogFormatter(logging.Formatter):
         lineno = str(record.lineno)
         head = f"{levelname[:1]} {record.module}.{record.funcName}"
         head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
-        record.msg = str(record.msg) % record.args
+        msg = str(record.msg) % record.args
 
         if record.exc_info:
-            record.msg = "> " + self.formatException(record.exc_info)
+            msg = "> " + self.formatException(record.exc_info)
 
-        if record.msg.startswith("> "):
+        if msg.startswith("> "):
             head = self.get_color(record.levelno) + head
-            # record.msg = self.get_color(logging.DEBUG) + record.msg[2:] + self.get_color()
-            record.msg = record.msg[2:] + self.get_color()
+            # msg = self.get_color(logging.DEBUG) + msg[2:] + self.get_color()
+            msg = msg[2:] + self.get_color()
         else:
             head = self.get_color(record.levelno) + head + self.get_color()
 
         # An ugly hack to prevent printing empty lines from print calls (2/3)
-        return f"{head} {record.msg.lstrip()}\n"
+        return f"{head} {msg.lstrip()}\n"
 
 
 def setup_logging(loglevel, color=False, logfile=""):
@@ -139,8 +143,8 @@ def setup_logging(loglevel, color=False, logfile=""):
 
     logger = logging.getLogger()
 
-    add_logging_level("OK", 23)
-    add_logging_level("PRINT", 22)
+    add_logging_level("OK", OK)
+    add_logging_level("PRINT", PRINT)
 
     logger.setLevel(logging.DEBUG)
 
@@ -156,6 +160,9 @@ def setup_logging(loglevel, color=False, logfile=""):
         formatter = LogFormatter(color=color)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+
+    # Use custom loglevel for Pipeline success messages
+    Pipeline.OK_LOGLEVEL = OK
 
     # send print calls from Jobs and Hooks to log.
     # Even though there are probably better ways of doing this,
