@@ -17,7 +17,7 @@ extension-pkg-whitelist=
 fail-on=
 
 # Specify a score threshold to be exceeded before program exits with error.
-fail-under=10.0
+fail-under=9.8
 
 # Files or directories to be skipped. They should be base names, not paths.
 ignore=CVS
@@ -55,7 +55,7 @@ persistent=yes
 
 # Minimum Python version to use for version dependent checks. Will default to
 # the version used to run pylint.
-py-version=3.10
+py-version=3.8
 
 # Discover python modules and packages in the file system subtree.
 recursive=no

@@ -18,6 +18,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pylint
+        pip install -e .
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py')
+        pylint src/yapp
+        # once the examples are ready we'll check everything
+        #pylint $(git ls-files '*.py')
