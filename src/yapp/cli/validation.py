@@ -7,16 +7,17 @@ from cerberus.errors import BasicErrorHandler
 from yapp import Pipeline
 
 
-class ErrorHandler(BasicErrorHandler):   # pylint: disable=abstract-method
+class ErrorHandler(BasicErrorHandler):  # pylint: disable=abstract-method
     """
     Cerberus custom ErrorHandler to print config errors the way I want
     """
+
     def _format_message(self, field, error):
         msg = self.messages[error.code].format(
             *error.info, constraint=error.constraint, field=field, value=error.value
         )
         document_path = map(str, error.document_path)
-        logging.error('%s: %s', "->".join(document_path), msg)
+        logging.error("%s: %s", "->".join(document_path), msg)
         return msg
 
 
