@@ -6,7 +6,8 @@ yapp is a simple python data pipeline framework, it is inspired by [ploomber](ht
 
 yapp strives to be as simple as possible and make you focus on the correctness of your algorithms.
 It's developed with specific requirements and built according to those: it may be the best choice for you once completed, or may be not.
-For sure it isn't right now.
+Basic functionality is there but there are some very rough edges to be smoothed. There are no tests not even a proper example yet.
+
 
 ## Install
 
@@ -19,16 +20,16 @@ pip install yapp-pipelines
 Pipelines are described using in a `pipelines.yml` yaml file.
 This file contains the pipelines definitions and an optional global config for all the pipelines.
 
-For a complete overview on how to define pipelines se the documentation in the wiki. [coming soon]
-
 A Pipeline is made up of Jobs.
 A Job represents a step of the pipeline, it takes inputs as parameters and returns a dict of outputs.
 The pipeline.yml file defines the dependencies of every Job in the Pipeline. They are resolved and
-then they are run one at the time (even if it may be possible to run them in parallel, this is a
+then run one at the time (even if it may be possible to run them in parallel, this is a
 willingly design choice).
 
 Pipelines can have hooks to perform specific task before or after each task (such as updating some
 kind of status monitor)
+
+For a complete overview on how to define pipelines se the [documentation in the wiki.](https://github.com/cavenditti/yapp/wiki/pipelines.yml)
 
 You can run a pipeline using the `yapp` command:
 ```
@@ -42,24 +43,17 @@ It searches in, in order:
  2. Top level directory of your code
  3. yapp built-in modules
 
-## TODOs
+The first two are relative to the current working directory or to the supplied using `path` or `-p`
 
-### Basic features still missing:
- - [x] yapp cli command
- - [x] ~Finalize~ yaml files specification (yet to be properly documented)
- - [x] Proper code organization
- - [x] Package
+## Planned features still missing:
+
+ - [ ] pipelines.yml specification
  - [ ] A good and working example
- - [x] hooks
- - [x] kinda working global config for multiple pipelines
-
-### Possibly lower priority
- - TESTS.
- - ~Good~ Better logging
- - docstrings
- - CI/CD (even very basic)
- - Pipeline status monitor class with an example
- - Consider permitting repeted tasks in a single pipeline (can this be useful?)
- - For each step, keep track of the inputs required in future steps. So that unneeded ones can be
+ - [ ] docstrings
+ - [ ] TESTS.
+ - [ ] Pipeline status monitor class with an example
+ - [ ] Allow importing from Jupyter notebooks
+ - [ ] Inputs aliases
+ - [ ] Consider permitting repeted tasks in a single pipeline (can this be useful?)
+ - [ ] For each step, keep track of the inputs required in future steps. So that unneeded ones can be
    removed from memory
- - Inputs aliases
