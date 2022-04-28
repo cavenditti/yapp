@@ -67,9 +67,10 @@ class LogFormatter(logging.Formatter):
     Custom LogFormatter, probably not the best way at all to do this but was fun doing it this way.
     """
 
-    def __init__(self, width=26, color=False):
+    def __init__(self, width=26, color=False, show_lineno=False):
         self.width = width
         self.color = color
+        self.show_lineno = show_lineno
         super().__init__()
 
     def get_color(self, loglevel=None):
@@ -121,9 +122,12 @@ class LogFormatter(logging.Formatter):
         if len(record.funcName) > 10:
             record.funcName = record.funcName[:10] + "…"
         levelname = record.levelname[:1]
-        lineno = str(record.lineno)
         head = f"{levelname[:1]} {record.module}.{record.funcName}"
-        head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
+        if self.show_lineno:
+            lineno = str(record.lineno)
+            head = "[" + head.ljust(self.width - len(lineno)) + " " + lineno + "]"
+        else:
+            head = "[" + head.ljust(self.width) + "]"
         msg = str(record.msg) % record.args
 
         if record.exc_info:
@@ -140,7 +144,7 @@ class LogFormatter(logging.Formatter):
         return f"{head} {msg.lstrip()}\n"
 
 
-def setup_logging(loglevel, color=False, logfile=""):
+def setup_logging(loglevel, color=False, logfile="", show_lineno=False):
     """
     Setup logging for yapp
     """
@@ -161,7 +165,7 @@ def setup_logging(loglevel, color=False, logfile=""):
         # An ugly hack to prevent printing empty lines from print calls (3/3)
         handler.terminator = ""
         handler.setLevel(getattr(logging, loglevel))
-        formatter = LogFormatter(color=color)
+        formatter = LogFormatter(color=color, show_lineno=show_lineno)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 

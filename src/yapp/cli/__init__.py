@@ -69,7 +69,8 @@ def main():
     args = parser.parse_args()
     loglevel = args.loglevel.upper()
 
-    setup_logging(loglevel, color=args.color, logfile=args.logfile)
+    show_lineno = loglevel == 'DEBUG'
+    setup_logging(loglevel, color=args.color, logfile=args.logfile, show_lineno=show_lineno)
 
     # prepare config parser
     config_parser = ConfigParser(args.pipeline, path=args.path)
