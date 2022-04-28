@@ -8,7 +8,7 @@ import logging
 import sys
 
 from yapp.cli.logs import setup_logging
-from yapp.cli.parsing import create_pipeline
+from yapp.cli.parsing import ConfigParser
 
 
 def main():
@@ -71,15 +71,19 @@ def main():
 
     setup_logging(loglevel, color=args.color, logfile=args.logfile)
 
+    # prepare config parser
+    config_parser = ConfigParser(args.pipeline, path=args.path)
+
     # Read configuration and create a new pipeline
     try:
-        pipeline = create_pipeline(args.pipeline, path=args.path)
+        pipeline = config_parser.parse()
     except Exception as error:  # pylint: disable=broad-except
         logging.exception(error)
         sys.exit(-1)
 
     # Run the pipeline
     try:
+        config_parser.switch_workdir()
         pipeline()
     except Exception as error:  # pylint: disable=broad-except
 
