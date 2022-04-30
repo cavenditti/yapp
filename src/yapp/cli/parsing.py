@@ -296,10 +296,10 @@ class ConfigParser:
             hook_name, hooks_list = hook_tuple
 
             # check if a valid hook
-            if hook_name not in Pipeline.valid_hooks:
+            if hook_name not in Pipeline.VALID_HOOKS:
                 raise ValueError(
                     f"""Invalid hook specified: {hook_name}.
-    Hooks can be one of {Pipeline.valid_hooks}"""
+    Hooks can be one of {Pipeline.VALID_HOOKS}"""
                 )
 
             hooks[hook_name] = []

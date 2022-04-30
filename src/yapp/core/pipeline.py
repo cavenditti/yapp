@@ -7,26 +7,32 @@ from .inputs import Inputs
 
 
 class Pipeline:
-    """
-    Pipeline
+    """Pipeline
+
+    Pipeline implementation.
+    Collects jobs, hooks and input and output adapter and runs the pipeline.
+
+    Attributes:
+        OK_LOGLEVEL:
+          Loglevel to use for pipeline and jobs completed execution status messages
+        VALID_HOOKS:
+          list of valid hooks that can be used in a pipeline
+        __nested_timed_calls:
+          level of nested calls to `timed`, used to enhance logging
     """
 
-    # used for log completed status messages for jobs and pipelines
     OK_LOGLEVEL = logging.INFO
 
-    # list of valid hooks for a Pipeline
-    valid_hooks = [
+    VALID_HOOKS = [
         "on_pipeline_start",
         "on_pipeline_finish",
         "on_job_start",
         "on_job_finish",
     ]
 
-    # used to keep track of nested levels in logs
     __nested_timed_calls = 0
 
     def __init__(self, job_list, name="", inputs=None, outputs=None, **hooks):
-
         if name:
             self.name = name
         else:
@@ -50,7 +56,7 @@ class Pipeline:
         # there should never be an invalid name here
         # but we're being cautious anyway
         logging.debug("Hooks for %s: %s", self.name, hooks)
-        for hook_name in Pipeline.valid_hooks:
+        for hook_name in Pipeline.VALID_HOOKS:
             if hook_name in hooks:
                 logging.debug(
                     "Adding %s hooks for %s", len(hooks[hook_name]), hook_name
@@ -65,33 +71,50 @@ class Pipeline:
 
     @property
     def config(self):
-        """
-        Shortcut for configuration from inputs
+        """ Shortcut for configuration from inputs
         """
         return self.inputs.config
 
     @property
     def job_name(self):
-        """
-        Shortcut for self.current_job.name which handles no current_job
+        """ Shortcut for self.current_job.name which handles no current_job
         """
         if self.current_job:
             return self.current_job.name
         return None
 
     def run_hook(self, hook_name):
-        """
-        Run all hooks for current event
+        """ Run all hooks for current event
+
         A hook is just a function taking a pipeline as single argument
+
+        Args:
+            hook_name:
+              name of the hook to run ("on_pipeline_start", "on_job_start", etc.)
         """
         hooks = getattr(self, hook_name)
         for hook in hooks:
             self.timed(f"{hook_name} hook", hook.__name__, hook, self)
 
-    # TODO this could be a decorator
     def timed(self, typename, name, func, *args, **kwargs):
-        """
-        Timed execution of a function, logging times
+        """ Runs a timed execution of a function, logging times
+
+        The first two parameters are used to specify the type and name of the entity to run.
+
+        Args:
+            typename:
+              name of the type of the component to run ("pipeline", "job", "hook", etc.)
+            name:
+              name of the component to run
+            func:
+              function to run
+            *args:
+              other arguments passed to func
+            *kwargs:
+              other keyword arguments passed to func
+
+        Returns:
+            The output of provided function
         """
         # Increase nesting level
         self.__nested_timed_calls += 1
@@ -116,8 +139,7 @@ class Pipeline:
         return out
 
     def _run_job(self, job):
-        """
-        Execution of a single job
+        """ Execution of a single job
         """
 
         # Get arguments used in the execute function
@@ -146,16 +168,20 @@ class Pipeline:
             self.inputs.merge(last_output)
 
     def save_output(self, name, data):
-        """
-        Save data to each output adapter
+        """ Save data to each output adapter
+
+        Args:
+            name:
+              name to pass to the output adapters when saving the data
+            data:
+              data to save
         """
         for output in self.outputs:
             output.save(name, data)
             logging.info("saved %s output to %s", name, output)
 
     def _run(self):
-        """
-        Runs all Pipeline's jobs
+        """ Runs all Pipeline's jobs
         """
         self.run_hook("on_pipeline_start")
 
@@ -168,8 +194,9 @@ class Pipeline:
         self.run_hook("on_pipeline_finish")
 
     def __call__(self, inputs=None, outputs=None, config=None):
-        """
-        Pipeline entrypoint
+        """ Pipeline entrypoint
+
+        Sets up inputs, outputs and config (if specified) and runs the pipeline
         """
         # Override inputs or outputs if specified
         if inputs:

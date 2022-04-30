@@ -121,7 +121,7 @@ pipeline_schema = {
                     "check_with": check_code_reference
                 },
             }
-            for hook in Pipeline.valid_hooks
+            for hook in Pipeline.VALID_HOOKS
         },
     },
 }
