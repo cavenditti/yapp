@@ -8,18 +8,18 @@ from .output_adapter import OutputAdapter
 
 
 class Pipeline:
-    """Pipeline
+    """yapp Pipeline object
 
     Pipeline implementation.
     Collects jobs, hooks and input and output adapter and runs the pipeline.
 
     Attributes:
-        OK_LOGLEVEL:
-          Loglevel to use for pipeline and jobs completed execution status messages
-        VALID_HOOKS:
-          list of valid hooks that can be used in a pipeline
-        __nested_timed_calls:
-          level of nested calls to `timed`, used to enhance logging
+        OK_LOGLEVEL (int):
+            Loglevel to use for pipeline and jobs completed execution status messages
+        VALID_HOOKS (list):
+            list of valid hooks that can be used in a pipeline
+        __nested_timed_calls (int):
+            level of nested calls to `timed`, used to enhance logging
     """
 
     OK_LOGLEVEL = logging.INFO
@@ -90,8 +90,8 @@ class Pipeline:
         A hook is just a function taking a pipeline as single argument
 
         Args:
-            hook_name:
-              name of the hook to run ("on_pipeline_start", "on_job_start", etc.)
+            hook_name (str):
+                name of the hook to run ("on_pipeline_start", "on_job_start", etc.)
         """
         hooks = getattr(self, hook_name)
         for hook in hooks:
@@ -103,19 +103,17 @@ class Pipeline:
         The first two parameters are used to specify the type and name of the entity to run.
 
         Args:
-            typename:
-              name of the type of the component to run ("pipeline", "job", "hook", etc.)
-            name:
-              name of the component to run
-            func:
-              function to run
+            typename (str):
+                name of the type of the component to run ("pipeline", "job", "hook", etc.)
+            name (str):
+                name of the component to run
+            func (callable):
+                function to run
             *args:
-              other arguments passed to func
-            *kwargs:
-              other keyword arguments passed to func
+            **kwargs:
 
         Returns:
-            The output of provided function
+            (Any) The output of provided function
         """
         # Increase nesting level
         self.__nested_timed_calls += 1
@@ -175,9 +173,9 @@ class Pipeline:
 
         Args:
             name:
-              name to pass to the output adapters when saving the data
+                name to pass to the output adapters when saving the data
             data:
-              data to save
+                data to save
         """
         for output in self.outputs:
             output[name] = data
