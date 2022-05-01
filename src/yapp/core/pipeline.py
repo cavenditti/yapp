@@ -4,6 +4,7 @@ from datetime import datetime
 
 from .attr_dict import AttrDict
 from .inputs import Inputs
+from .output_adapter import OutputAdapter
 
 
 class Pipeline:
@@ -164,6 +165,7 @@ class Pipeline:
 
         # save output and merge into inputs for next steps
         if last_output:
+            logging.debug('saving last_output: %s', last_output)
             self.save_output(job.__class__.__name__, last_output)
             self.inputs.merge(last_output)
 
@@ -204,13 +206,27 @@ class Pipeline:
         if outputs:
             self.outputs = outputs
 
+        if not isinstance(self.inputs, Inputs):
+            raise ValueError(f'{self.inputs} is not an Inputs object')
+        if not isinstance(self.outputs, list):
+            raise ValueError(f'{self.outputs} is not a list')
+
+        for i,output in enumerate(self.outputs):
+            if isinstance(output, type):
+                self.outputs[i] = output = output()
+            if not isinstance(output, OutputAdapter):
+                raise ValueError(f'{output} is not an OutputAdapter')
+
         # Check if something is missing
         if not self.inputs:
             logging.warning("Missing inputs for pipeline %s", self.name)
         if not self.outputs:
             logging.warning("Missing outputs for pipeline %s", self.name)
 
-        if config:  # config shorthand, just another input
-            self.inputs.config = AttrDict(config)
+        if not config:
+            config = {}
+
+        # config shorthand, just another input
+        self.inputs.config = AttrDict(config)
 
         self.timed("pipeline", self.name, self._run)

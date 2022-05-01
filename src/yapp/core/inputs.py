@@ -1,6 +1,7 @@
 import logging
 
 from .attr_dict import AttrDict
+from .input_adapter import InputAdapter
 
 
 class Inputs(AttrDict):
@@ -11,10 +12,9 @@ class Inputs(AttrDict):
     def __init__(self, *args, sources=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.exposed = {}  # mapping name to source
-        if not sources:
-            return
-        for source in sources:
-            self.register(source.__class__.__name__, source)
+        if sources:
+            for source in sources:
+                self.register(source.__class__.__name__, source)
 
     def __str__(self):
         keys = set(self.keys()) - {"exposed"}
@@ -57,7 +57,7 @@ class Inputs(AttrDict):
     def __or__(self, other):
         return self.merge(other)  # TODO union operator should not work in place
 
-    def register(self, name: str, adapter):
+    def register(self, name: str, adapter: InputAdapter):
         """
         New input adapter (just a new Item)
         """
