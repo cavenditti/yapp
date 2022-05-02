@@ -167,7 +167,7 @@ class Pipeline:
         if last_output:
             logging.debug('saving last_output: %s', last_output)
             self.save_output(job.__class__.__name__, last_output)
-            self.inputs.merge(last_output)
+            self.inputs.update(last_output)
 
     def save_output(self, name, data):
         """ Save data to each output adapter
