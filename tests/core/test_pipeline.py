@@ -24,6 +24,8 @@ def hook_factory(expected_job, expected_job_name):
 
     def job_name_looker_hook(pipeline):
         assert pipeline.job_name == expected_job_name
+        if expected_job_name:
+            assert str(pipeline.current_job) == f'<yapp job {expected_job_name}>'
 
     return job_looker_hook, job_name_looker_hook
 
@@ -51,6 +53,13 @@ def test_simple_pipeline():
     assert "a_value" in pipeline.inputs
 
 
+def test_types_outputs_pipeline():
+    pipeline = Pipeline([DummyJob], name="test_pipeline")
+    pipeline(outputs=[DummyOutput])
+    pipeline = Pipeline([DummyJob], name="test_pipeline")
+    pipeline(outputs={DummyOutput})
+
+
 def test_bad_inputs_pipeline():
     with pytest.raises(ValueError):
         pipeline = Pipeline([DummyJob], inputs=22, name="test_pipeline")
@@ -62,7 +71,7 @@ def test_bad_inputs_pipeline():
 
     with pytest.raises(ValueError):
         pipeline = Pipeline([DummyJob], name="test_pipeline")
-        pipeline(inputs=DummyOutput)  # not list
+        pipeline(inputs=DummyOutput)  # not an Inputs
 
     with pytest.raises(ValueError):
         pipeline = Pipeline([DummyJob], name="test_pipeline")
