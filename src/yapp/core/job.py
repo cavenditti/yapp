@@ -17,7 +17,7 @@ class Job(ABC):
         return self.__class__.__name__
 
     def __str__(self):
-        return self.name
+        return f'<yapp job {self.name}>'
 
     @abstractmethod
     def execute(self, *inputs):

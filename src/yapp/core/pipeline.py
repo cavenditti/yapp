@@ -50,7 +50,7 @@ class Pipeline:
         # inputs and outputs
         self.inputs = inputs if inputs else Inputs()
         self.outputs = outputs if outputs else []
-        logging.debug("Inputs for %s: %s", self.name, self.inputs)
+        logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
 
         # hooks
         # Hook names should be checked inside yapp.cli,
@@ -179,7 +179,7 @@ class Pipeline:
               data to save
         """
         for output in self.outputs:
-            output.save(name, data)
+            output[name] = data
             logging.info("saved %s output to %s", name, output)
 
     def _run(self):
@@ -205,6 +205,11 @@ class Pipeline:
             self.inputs = inputs
         if outputs:
             self.outputs = outputs
+
+        # FIXME define one type for outputs and just enforce it
+        # Eventually creating an Outputs class
+        if isinstance(self.outputs, set):
+            self.outputs = list(self.outputs)
 
         if not isinstance(self.inputs, Inputs):
             raise ValueError(f'{self.inputs} is not an Inputs object')
