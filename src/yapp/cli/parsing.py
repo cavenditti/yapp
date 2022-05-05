@@ -81,6 +81,8 @@ class ConfigParser:
             try:
                 logging.debug("Trying path %s for module %s", path, module_name)
                 spec = importlib.util.spec_from_file_location(module_name, path + ".py")
+                if not spec:
+                    continue
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 break

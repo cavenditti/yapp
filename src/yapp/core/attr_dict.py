@@ -1,7 +1,3 @@
-import json
-import logging
-
-
 class AttrDict(dict):
     """
     Extends dict so that elements can be accessed as attributes
@@ -18,12 +14,15 @@ class AttrDict(dict):
             obj = type(obj)(map(AttrDict.recursive_convert, obj))
         return obj
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, other=None, **kwargs):
+        """ Create a new AttrDict
+        Args:
+            self (None, mapping, iterable):
+        """
+        if other:
+            super().__init__(other, **kwargs)
+        else:
+            super().__init__(**kwargs)
         self.__dict__ = self
         for k in self:
             self[k] = AttrDict.recursive_convert(self[k])
-
-    def __getattr__(self, attr):
-        logging.error("no attr named %s", attr)
-        logging.error(json.dumps(self, indent=4))

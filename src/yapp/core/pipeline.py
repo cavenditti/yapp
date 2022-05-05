@@ -4,6 +4,7 @@ from datetime import datetime
 
 from .attr_dict import AttrDict
 from .inputs import Inputs
+from .output_adapter import OutputAdapter
 
 
 class Pipeline:
@@ -49,7 +50,7 @@ class Pipeline:
         # inputs and outputs
         self.inputs = inputs if inputs else Inputs()
         self.outputs = outputs if outputs else []
-        logging.debug("Inputs for %s: %s", self.name, self.inputs)
+        logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
 
         # hooks
         # Hook names should be checked inside yapp.cli,
@@ -164,8 +165,10 @@ class Pipeline:
 
         # save output and merge into inputs for next steps
         if last_output:
+            logging.debug('saving last_output: %s len %s', type(last_output),
+                    len(last_output))
             self.save_output(job.__class__.__name__, last_output)
-            self.inputs.merge(last_output)
+            self.inputs.update(last_output)
 
     def save_output(self, name, data):
         """ Save data to each output adapter
@@ -177,7 +180,7 @@ class Pipeline:
               data to save
         """
         for output in self.outputs:
-            output.save(name, data)
+            output[name] = data
             logging.info("saved %s output to %s", name, output)
 
     def _run(self):
@@ -204,13 +207,32 @@ class Pipeline:
         if outputs:
             self.outputs = outputs
 
+        # FIXME define one type for outputs and just enforce it
+        # Eventually creating an Outputs class
+        if isinstance(self.outputs, set):
+            self.outputs = list(self.outputs)
+
+        if not isinstance(self.inputs, Inputs):
+            raise ValueError(f'{self.inputs} is not an Inputs object')
+        if not isinstance(self.outputs, list):
+            raise ValueError(f'{self.outputs} is not a list')
+
+        for i,output in enumerate(self.outputs):
+            if isinstance(output, type):
+                self.outputs[i] = output = output()
+            if not isinstance(output, OutputAdapter):
+                raise ValueError(f'{output} is not an OutputAdapter')
+
         # Check if something is missing
         if not self.inputs:
             logging.warning("Missing inputs for pipeline %s", self.name)
         if not self.outputs:
             logging.warning("Missing outputs for pipeline %s", self.name)
 
-        if config:  # config shorthand, just another input
-            self.inputs.config = AttrDict(config)
+        if not config:
+            config = {}
+
+        # config shorthand, just another input
+        self.inputs.config = AttrDict(config)
 
         self.timed("pipeline", self.name, self._run)

@@ -67,7 +67,7 @@ class LogFormatter(logging.Formatter):
     Custom LogFormatter, probably not the best way at all to do this but was fun doing it this way.
     """
 
-    def __init__(self, width=26, color=False, show_lineno=False):
+    def __init__(self, width=28, color=False, show_lineno=False):
         self.width = width
         self.color = color
         self.show_lineno = show_lineno
