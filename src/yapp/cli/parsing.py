@@ -8,8 +8,9 @@ import types
 from types import MethodType
 
 import yaml
+from cerberus.validator import DocumentError
 
-from yapp.core.errors import ConfigurationError
+from yapp.core.errors import ConfigurationError, MissingConfiguration
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
 
@@ -41,6 +42,7 @@ class ConfigParser:
     """
     Parses config files and build a pipeline accordingly
     """
+
     # Valid pipeline fields
     valid_fields = {
         "steps",
@@ -328,10 +330,14 @@ class ConfigParser:
         # Read yaml configuration and validate it
         pipelines_yaml = yaml_read(self.pipelines_file)
         logging.debug("Loaded YAML: %s", pipelines_yaml)
-        config_errors = validate(pipelines_yaml)
+
+        try:
+            config_errors = validate(pipelines_yaml)
+        except DocumentError as error:
+            raise MissingConfiguration() from error
 
         if config_errors:
-            logging.warning(
+            logging.error(
                 "Configuration errors for pipelines: %s", list(config_errors.keys())
             )
             if self.pipeline_name in config_errors:

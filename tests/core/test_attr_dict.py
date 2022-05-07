@@ -1,6 +1,3 @@
-import pytest
-import logging
-
 from yapp.core import AttrDict
 
 
@@ -21,7 +18,7 @@ def test_attr_dict():
     assert d3.b == 100
 
 
-def test_recursive_convert_attr_dict():
+def test_recursive_convert():
     d1 = AttrDict(
         {
             "a": {"a1": [12, 13, 14]},

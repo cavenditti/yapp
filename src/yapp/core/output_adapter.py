@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class OutputAdapter(ABC):
@@ -29,7 +28,7 @@ class OutputAdapter(ABC):
                 Data returned from Job execution
         """
 
-    def empty(self, job_name):
+    def empty(self, job_name):  # type: ignore
         """
         Override this if you wish to save something when a Job returns nothing,
         Leave as it is you prefer ignoring it.
@@ -38,7 +37,6 @@ class OutputAdapter(ABC):
             job_name (str):
                 Name of the job returning None
         """
-        pass
 
     def save_result(self, key, data):
         """

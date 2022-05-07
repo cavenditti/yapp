@@ -1,12 +1,21 @@
 import inspect
 import logging
 from datetime import datetime
-from typing import Sequence
+from typing import Sequence, Set
 
 from .attr_dict import AttrDict
 from .inputs import Inputs
 from .job import Job
 from .output_adapter import OutputAdapter
+
+
+def enforce_list(value):
+    """Makes sure the argument can be treated as a list"""
+    if value is None:
+        return []
+    if isinstance(value, set):
+        return list(value)
+    return value if isinstance(value, list) else [value]
 
 
 class Pipeline:
@@ -35,22 +44,15 @@ class Pipeline:
 
     __nested_timed_calls = 0
 
-
-    def __enforce_list(self, value):
-        if value is None:
-            return []
-        if isinstance(value, set):
-            return list(value)
-        return value if isinstance(value, list) else [value]
-
-
     def __init__(
         self,
         job_list: Sequence[type[Job]],
         name: str = "",
         inputs: Inputs | None = None,
-        outputs: Sequence[OutputAdapter] | OutputAdapter | None = None,
-        save_results: Sequence[str] | str | None = None,
+        outputs: Sequence[type[OutputAdapter]]
+        | Set[type[OutputAdapter]]
+        | type[OutputAdapter]
+        | None = None,
         **hooks,
     ):
         """__init__.
@@ -67,9 +69,6 @@ class Pipeline:
 
             outputs:
                 Onputs for the pipeline
-
-            save_results:
-                Names of the outputs to save at the end of execution
 
             **hooks:
                 Hooks to attach to the pipeline
@@ -89,8 +88,8 @@ class Pipeline:
 
         # inputs and outputs
         self.inputs = inputs if inputs else Inputs()
-        self.outputs = self.__enforce_list(outputs)
-        self.save_results = self.__enforce_list(save_results)
+        self.outputs = enforce_list(outputs)
+        self.save_results = []
         logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
 
         # hooks
@@ -194,7 +193,7 @@ class Pipeline:
         logging.debug(
             "%s returned %s",
             job.name,
-            list(last_output.keys()) if isinstance(last_output,dict) else last_output,
+            list(last_output.keys()) if isinstance(last_output, dict) else last_output,
         )
 
         self.run_hook("on_job_finish")
@@ -207,7 +206,7 @@ class Pipeline:
                 len(last_output) if last_output is not None else "None",
             )
             for key in last_output:
-                self.save_output(key, last_output)
+                self.save_output(key, last_output[key])
         else:
             if last_output is None:
                 logging.warning("> %s returned None", job.name)
@@ -232,7 +231,7 @@ class Pipeline:
                 data to save
         """
 
-        method = '_save' if not results else '_save_result'
+        method = "_save" if not results else "_save_result"
         for output in self.outputs:
             getattr(output, method)(name, data)
             logging.debug("saved %s output to %s", name, output)
@@ -255,8 +254,6 @@ class Pipeline:
 
     def __call__(
         self,
-        inputs=None,
-        outputs=None,
         config=None,
         save_results: Sequence[str] | None = None,
     ):
@@ -265,12 +262,8 @@ class Pipeline:
         Sets up inputs, outputs and config (if specified) and runs the pipeline
         """
         # Override inputs or outputs if specified
-        if inputs:
-            self.inputs = inputs
-        if outputs:
-            self.outputs = self.__enforce_list(outputs)
         if save_results:
-            self.save_results = self.__enforce_list(save_results)
+            self.save_results = enforce_list(save_results)
 
         if not isinstance(self.inputs, Inputs):
             raise ValueError(f"{self.inputs} is not an Inputs object")

@@ -15,7 +15,7 @@ class AttrDict(dict):
         return obj
 
     def __init__(self, other=None, **kwargs):
-        """ Create a new AttrDict
+        """Create a new AttrDict
         Args:
             self (None, mapping, iterable):
         """

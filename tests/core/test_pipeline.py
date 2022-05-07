@@ -20,13 +20,15 @@ def hook_factory(expected_job, expected_job_name):
     """
     Hook used to check the current job
     """
+
     def job_looker_hook(pipeline):
         assert isinstance(pipeline.current_job, expected_job)
 
     def job_name_looker_hook(pipeline):
         assert pipeline.job_name == expected_job_name
         if expected_job_name:
-            assert str(pipeline.current_job) == f'<yapp job {expected_job_name}>'
+            assert pipeline.current_job.config is pipeline.config
+            assert str(pipeline.current_job) == f"<yapp job {expected_job_name}>"
 
     return job_looker_hook, job_name_looker_hook
 
@@ -34,6 +36,7 @@ def hook_factory(expected_job, expected_job_name):
 def test_empty_pipeline():
     pipeline = Pipeline([])
     pipeline()
+
 
 def pipeline_common_asserts(pipeline, *args, **kwargs):
     assert pipeline.inputs is not None
@@ -63,38 +66,50 @@ def test_simple_pipeline():
     assert "another_value" in pipeline.inputs
 
 
-def test_types_outputs_pipeline():
-    pipeline = Pipeline([DummyJob], name="test_pipeline")
-    pipeline(outputs=[DummyOutput])
-    pipeline = Pipeline([DummyJob], name="test_pipeline")
-    pipeline(outputs={DummyOutput})
+def test_outputadapter(capfd):
+    pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=[DummyOutput])
+    pipeline()
+    out, err = capfd.readouterr()
+    assert out.strip() == "a_value -15"
+
+    pipeline = Pipeline([DummyJob, DummyJob2], name="test_pipeline", outputs={DummyOutput})
+    pipeline()
+    out, err = capfd.readouterr()
+    outs = out.rstrip().split('\n')
+    assert len(outs) == 2
+    assert outs[0] == "a_value -15"
+    assert outs[1] == "another_value -30"
 
 
-def test_bad_inputs_pipeline():
+# With type hints these don't make much sense anymore
+def test_bad_inputs():
     with pytest.raises(ValueError):
-        pipeline = Pipeline([DummyJob], inputs=22, name="test_pipeline")
+        pipeline = Pipeline([DummyJob], inputs=22, name="test_pipeline")  # type: ignore
         pipeline()
 
     # Doesn't raise error
-    pipeline = Pipeline([DummyJob], name="test_pipeline")
-    pipeline(outputs=DummyOutput)  # not a list
+    pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=DummyOutput)
+    pipeline()  # not a list
 
     with pytest.raises(ValueError):
-        pipeline = Pipeline([DummyJob], name="test_pipeline")
-        pipeline(inputs=DummyOutput)  # not an Inputs
+        # not an Inputs
+        pipeline = Pipeline([DummyJob], name="test_pipeline", inputs=DummyOutput)  # type: ignore
+        pipeline()
 
     with pytest.raises(ValueError):
-        pipeline = Pipeline([DummyJob], name="test_pipeline")
-        pipeline(outputs=[DummyOutput, 123])  # list items not all OutputAdapter
+        pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=[DummyOutput, 123])  # type: ignore
+        pipeline()
 
 
-def test_runtime_inputs_outputs_pipeline():
+def test_runtime_inputs_outputs():
     inputs = Inputs(sources=[DummyInput])
-    pipeline = Pipeline([DummyJob], name="test_pipeline")
-    pipeline(inputs=inputs, outputs=[DummyOutput])
+    pipeline = Pipeline(
+        [DummyJob], name="test_pipeline", inputs=inputs, outputs=[DummyOutput]
+    )
+    pipeline()
 
 
-def test_hooks_pipeline():
+def test_hooks():
     inputs = Inputs(sources=[DummyInput])
 
     # used to check at pipeline start
@@ -107,9 +122,10 @@ def test_hooks_pipeline():
         name="test_pipeline",
         on_pipeline_start=[*checker_hooks_none],
         on_job_start=[*checker_hooks_dummy_job],
+        inputs=inputs,
+        outputs=[DummyOutput]
     )
-    pipeline(inputs=inputs, outputs=[DummyOutput])
-
+    pipeline()
 
 
 class ReturnsNoneJob(Job):
@@ -122,22 +138,22 @@ class PrintEmptyOutput(OutputAdapter):
         pass
 
     def empty(self, job_name):
-        print(f'empty {job_name} output', end='')
+        print(f"empty {job_name} output", end="")
 
 
-def test_empty_output_pipeline(capfd):
-    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline")
-    pipeline(outputs=[PrintEmptyOutput])
+def test_empty_output(capfd):
+    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline", outputs=[PrintEmptyOutput])
+    pipeline()
 
-    out, err = capfd.readouterr()
+    out, _ = capfd.readouterr()
     assert out == "empty ReturnsNoneJob output"
 
 
-def test_ignore_empty_output_pipeline(capfd):
-    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline")
-    pipeline(outputs=[DummyOutput])
+def test_ignore_empty_output(capfd):
+    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline", outputs=[DummyOutput])
+    pipeline()
 
-    out, err = capfd.readouterr()
+    out, _ = capfd.readouterr()
     assert out == ""
 
 
@@ -146,12 +162,22 @@ class PrintFinalOutput(OutputAdapter):
         pass
 
     def save_result(self, key, data):
-        print(key, '=', data, end='')
+        print(key, "=", data, end="")
 
 
-def test_save_results_pipeline(capfd):
+def test_save_results(capfd):
     pipeline = Pipeline([DummyJob], outputs=PrintFinalOutput)
-    pipeline(save_results='a_value')
+    pipeline(save_results="a_value")
 
-    out, err = capfd.readouterr()
+    out, _ = capfd.readouterr()
     assert out == "a_value = -15"
+
+
+def test_save_results_default(capfd):
+    pipeline = Pipeline([DummyJob], outputs=DummyOutput)
+    pipeline(save_results="a_value")
+
+    out, _ = capfd.readouterr()
+    outs = out.strip().split('\n')
+    assert len(outs) == 2
+    assert outs[0] == outs[1] == "a_value -15"

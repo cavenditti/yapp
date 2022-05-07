@@ -22,3 +22,9 @@ class ConfigurationError(RuntimeError):
                     {k: v for k, v in config_errors.items() if k != relevant_field},
                 )
         super().__init__("Configuration errors")
+
+
+class MissingConfiguration(RuntimeError):
+    """
+    Exception raised when an empty configuration file is found
+    """
