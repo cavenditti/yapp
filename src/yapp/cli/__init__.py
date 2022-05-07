@@ -87,14 +87,13 @@ def main():
         config_parser.switch_workdir()
         pipeline()
     except Exception as error:  # pylint: disable=broad-except
-
         logging.exception(error)
         logging.debug("pipeline.inputs: %s", pipeline.inputs.__repr__())
         logging.debug("pipeline.outputs: %s", pipeline.outputs)
         logging.debug("pipeline.job_list: %s", pipeline.job_list)
         for job in pipeline.job_list:
             args = inspect.getfullargspec(job.execute).args
-            logging.debug("%s.execute arguments: %s", job, args)
+            logging.debug("%s.execute arguments: %s", job, args[1:])
         sys.exit(-1)
 
 

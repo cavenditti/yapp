@@ -135,6 +135,8 @@ class LogFormatter(logging.Formatter):
         if record.exc_info:
             msg = "> " + self.formatException(record.exc_info)
 
+        # This could be done using levelno instead of logging into the message but that way there
+        # would be no highlight in the file output which has no color output
         if msg.startswith("> "):
             head = self.get_color(record.levelno) + head
             # msg = self.get_color(logging.DEBUG) + msg[2:] + self.get_color()
