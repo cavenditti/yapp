@@ -1,7 +1,7 @@
 """
 yapp — Yet Another Python (data) Pipeline
 """
-from .core import InputAdapter, Inputs, Job, OutputAdapter, Pipeline
+from .core import InputAdapter, Inputs, Job, OutputAdapter, Pipeline, Monitor
 from ._version import version
 
 __all__ = [
@@ -13,6 +13,7 @@ __all__ = [
     "Inputs",
     "InputAdapter",
     "OutputAdapter",
+    "Monitor",
 ]
 
 __version__ = version

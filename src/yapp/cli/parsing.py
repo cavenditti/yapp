@@ -50,6 +50,8 @@ class ConfigParser:
         "outputs",
         "expose",
         "hooks",
+        "monitor",
+        "config",
     }  # TODO add generic config directly using "config"
     # Auxiliary fields, not used for steps definition
     config_fields = valid_fields - {"steps"}

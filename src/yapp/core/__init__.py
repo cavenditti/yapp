@@ -8,6 +8,7 @@ from .inputs import Inputs
 from .job import Job
 from .output_adapter import OutputAdapter
 from .pipeline import Pipeline
+from .monitor import Monitor
 
 __all__ = [
     "AttrDict",
@@ -16,4 +17,5 @@ __all__ = [
     "Inputs",
     "OutputAdapter",
     "InputAdapter",
+    "Monitor",
 ]

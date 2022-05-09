@@ -7,6 +7,7 @@ from .attr_dict import AttrDict
 from .inputs import Inputs
 from .job import Job
 from .output_adapter import OutputAdapter
+from .monitor import Monitor
 
 
 def enforce_list(value):
@@ -53,6 +54,7 @@ class Pipeline:
         | Set[type[OutputAdapter]]
         | type[OutputAdapter]
         | None = None,
+        monitor: Monitor | None = None,
         **hooks,
     ):
         """__init__.
@@ -68,7 +70,10 @@ class Pipeline:
                 Inputs for the pipeline
 
             outputs:
-                Onputs for the pipeline
+                Outputs for the pipeline
+
+            monitor:
+                Monitor for the pipeline
 
             **hooks:
                 Hooks to attach to the pipeline
@@ -90,6 +95,7 @@ class Pipeline:
         self.inputs = inputs if inputs else Inputs()
         self.outputs = enforce_list(outputs)
         self.save_results = []
+        self.monitor = monitor if monitor else Monitor()
         logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
 
         # hooks
@@ -105,6 +111,9 @@ class Pipeline:
                 new_hooks = hooks[hook_name]
             else:
                 new_hooks = []
+            # If monitor object has it, use the method
+            if hasattr(monitor, hook_name) and callable(getattr(monitor, hook_name)):
+                new_hooks.append(getattr(monitor, hook_name))
             setattr(self, hook_name, new_hooks)
 
         # current job if any
@@ -186,8 +195,8 @@ class Pipeline:
 
         # call execute with right inputs
         #
-        # TODO exception handling is done at cli level for now
-        # but here would definetly be a better choice
+        # exception handling is done at cli level for now
+        # maybe some specific exception handling may fit here?
         last_output = job.execute(*[self.inputs[i] for i in args])
         logging.debug("%s run successfully", job.name)
         logging.debug(
