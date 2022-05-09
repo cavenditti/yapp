@@ -1,8 +1,8 @@
 """
 yapp — Yet Another Python (data) Pipeline
 """
-from .core import InputAdapter, Inputs, Job, OutputAdapter, Pipeline, Monitor
 from ._version import version
+from .core import InputAdapter, Inputs, Job, Monitor, OutputAdapter, Pipeline
 
 __all__ = [
     "core",

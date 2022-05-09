@@ -6,8 +6,8 @@ from typing import Sequence, Set
 from .attr_dict import AttrDict
 from .inputs import Inputs
 from .job import Job
-from .output_adapter import OutputAdapter
 from .monitor import Monitor
+from .output_adapter import OutputAdapter
 
 
 def enforce_list(value):

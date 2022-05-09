@@ -1,6 +1,6 @@
 import pytest
 
-from yapp import Pipeline, Job
+from yapp import Job, Pipeline
 from yapp.adapters.utils import DummyInput, DummyOutput
 from yapp.core.inputs import Inputs
 from yapp.core.output_adapter import OutputAdapter

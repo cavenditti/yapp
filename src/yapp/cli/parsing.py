@@ -10,9 +10,11 @@ from types import MethodType
 import yaml
 from cerberus.validator import DocumentError
 
-from yapp.core.errors import ConfigurationError, MissingConfiguration
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
+from yapp.core.errors import (ConfigurationError, EmptyConfiguration,
+                              ImportedCodeFailed, MissingConfiguration,
+                              MissingEnv, MissingPipeline)
 
 
 def env_constructor(loader, node):
@@ -23,7 +25,7 @@ def env_constructor(loader, node):
         value = loader.construct_scalar(node)
         return os.environ[value]
     except KeyError as error:
-        raise KeyError(f"Missing environment variable: {error.args[0]}") from None
+        raise MissingEnv(error.args[0]) from None
 
 
 def yaml_read(path):
@@ -33,9 +35,12 @@ def yaml_read(path):
     # use !env VARIABLENAME to refer env variables
     yaml.add_constructor("!env", env_constructor)
 
-    with open(path, "r", encoding="utf-8") as file:
-        parsed = yaml.full_load(file)
-    return parsed
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            parsed = yaml.full_load(file)
+        return parsed
+    except FileNotFoundError:
+        raise MissingConfiguration() from None
 
 
 class ConfigParser:
@@ -82,16 +87,27 @@ class ConfigParser:
         paths = [os.path.join(*[base_path] + ref) for base_path in self.base_paths]
         # try to load from all possible paths
         for path in paths:
+            logging.debug("Trying path %s for module %s", path, module_name)
             try:
-                logging.debug("Trying path %s for module %s", path, module_name)
                 spec = importlib.util.spec_from_file_location(module_name, path + ".py")
-                if not spec:
-                    continue
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                break
             except FileNotFoundError:
-                pass
+                continue
+
+            if not spec:
+                continue
+
+            module = importlib.util.module_from_spec(spec)
+
+            try:
+                spec.loader.exec_module(module)
+            except FileNotFoundError:
+                # always continue on FileNotFoundError
+                continue
+            except Exception as error:
+                raise ImportedCodeFailed(module, *error.args) from None
+
+            # if everything goes well stop here and don't try next possibilities
+            break
         else:
             # if didn't find it, try from yapp
             # and if still cannot find it, raise an error
@@ -336,7 +352,7 @@ class ConfigParser:
         try:
             config_errors = validate(pipelines_yaml)
         except DocumentError as error:
-            raise MissingConfiguration() from error
+            raise EmptyConfiguration() from error
 
         if config_errors:
             logging.error(
@@ -351,7 +367,7 @@ class ConfigParser:
 
         # Check if requested pipeline is in config and get only its config
         if self.pipeline_name not in pipelines_yaml:
-            raise KeyError(f"Invalid pipeline name: {self.pipeline_name}")
+            raise MissingPipeline(self.pipeline_name)
         pipeline_cfg = pipelines_yaml[self.pipeline_name]
 
         # read global config

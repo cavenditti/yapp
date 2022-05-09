@@ -9,7 +9,7 @@ import sys
 
 from yapp.cli.logs import setup_logging
 from yapp.cli.parsing import ConfigParser
-from yapp.core.errors import MissingConfiguration
+from yapp.core.errors import YappFatalError
 
 
 def main():
@@ -81,12 +81,8 @@ def main():
     # Read configuration and create a new pipeline
     try:
         pipeline = config_parser.parse()
-    except FileNotFoundError:
-        logging.error("pipelines.yml file not found")
-        sys.exit(2)
-    except MissingConfiguration:
-        logging.error("Missing configuration (is pipelines.yml empty?)")
-        sys.exit(3)
+    except YappFatalError as error:
+        error.log_and_exit()
     except Exception as error:  # pylint: disable=broad-except
         logging.exception(error)
         sys.exit(-1)
@@ -103,7 +99,7 @@ def main():
         for job in pipeline.job_list:
             args = inspect.getfullargspec(job.execute).args
             logging.debug("%s.execute arguments: %s", job, args[1:])
-        sys.exit(-1)
+        sys.exit(-2)
 
 
 if __name__ == "__main__":

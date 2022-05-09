@@ -6,9 +6,9 @@ from .attr_dict import AttrDict
 from .input_adapter import InputAdapter
 from .inputs import Inputs
 from .job import Job
+from .monitor import Monitor
 from .output_adapter import OutputAdapter
 from .pipeline import Pipeline
-from .monitor import Monitor
 
 __all__ = [
     "AttrDict",

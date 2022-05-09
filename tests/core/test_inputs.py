@@ -1,6 +1,7 @@
 import pytest
 
-from yapp import Inputs, InputAdapter
+from yapp import InputAdapter, Inputs
+
 
 class DummyInput(InputAdapter):
     """
