@@ -236,7 +236,7 @@ class Pipeline:
             # save using job name
             self.save_output(job.name, last_output)
             # replace last_output with dict to merge into inputs
-            last_output = {job.name, last_output}
+            last_output = {job.name: last_output}
         # merge into inputs
         try:
             self.inputs.update(last_output)
