@@ -43,6 +43,9 @@ class Pipeline:
         "on_job_finish",
     ]
 
+    started_at = None
+    finished_at = None
+
     __nested_timed_calls = 0
 
     def __init__(
@@ -131,6 +134,13 @@ class Pipeline:
             return self.current_job.name
         return None
 
+    @property
+    def completed(self):
+        """
+        True if pipeline successfully run, False otherwise
+        """
+        return self.finished_at is not None
+
     def run_hook(self, hook_name):
         """Run all hooks for current event
 
@@ -144,7 +154,7 @@ class Pipeline:
         for hook in hooks:
             self.timed(f"{hook_name} hook", hook.__name__, hook, self)
 
-    def timed(self, typename, name, func, *args, **kwargs):
+    def timed(self, typename, name, func, *args, _update_object=None, **kwargs):
         """Runs a timed execution of a function, logging times
 
         The first two parameters are used to specify the type and name of the entity to run.
@@ -169,6 +179,8 @@ class Pipeline:
 
         logging.info("%s Starting %s %s", prefix, typename, name)
         start = datetime.now()
+        if _update_object:
+            _update_object.started_at = start
         out = func(*args, **kwargs)
         end = datetime.now()
         logging.log(
@@ -179,6 +191,8 @@ class Pipeline:
             name,
             end - start,
         )
+        if _update_object:
+            _update_object.finished_at = start
 
         # Decrease nesting level
         self.__nested_timed_calls -= 1
@@ -253,7 +267,9 @@ class Pipeline:
             logging.debug('Instantiating new job from "%s"', job_class)
             job_obj = job_class(self)
             self.current_job = job_obj
-            self.timed("job", job_obj.name, self._run_job, job_obj)
+            self.timed(
+                "job", job_obj.name, self._run_job, job_obj, _update_object=job_obj
+            )
 
         self.run_hook("on_pipeline_finish")
 
@@ -295,4 +311,4 @@ class Pipeline:
         # config shorthand, just another input
         self.inputs.config = AttrDict(config)
 
-        self.timed("pipeline", self.name, self._run)
+        self.timed("pipeline", self.name, self._run, _update_object=self)
