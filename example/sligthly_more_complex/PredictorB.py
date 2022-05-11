@@ -1,2 +1,5 @@
+import pandas as pd
+
+
 def execute():
-    pass
+    return {"prediction_b": pd.DataFrame()}

@@ -1,2 +1,5 @@
+import pandas as pd
+
+
 def execute():
-    pass
+    return pd.DataFrame()
