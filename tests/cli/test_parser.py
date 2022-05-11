@@ -1,12 +1,15 @@
+import graphlib
 import os
 import pathlib
 
 import pytest
 
 from yapp.cli.parsing import ConfigParser
+from yapp.core.attr_dict import AttrDict
 from yapp.core.errors import (ConfigurationError, EmptyConfiguration,
                               ImportedCodeFailed, MissingConfiguration,
                               MissingPipeline)
+from yapp.core.inputs import Inputs
 
 
 def make_tmp(tmp_path, filename, content, parent=''):
@@ -39,20 +42,156 @@ def test_build_job():
     pass
 
 
-basic_yml = ""
+
+# --------------------------------------------------------------------
+# TODO the following are basically integration tests and should be kept separated (?)
+
+# used in multiple tests
+nop_py = """
+def do_nothing():
+   pass
+"""
+
+def test_build_simple_pipeline(tmp_path):
+
+    pipelines_yml = """
+a_pipeline:
+    steps:
+        - nop.do_nothing
+"""
+
+    make_tmp(tmp_path, "nop.py", nop_py, parent='a_pipeline')
+    make_tmp(tmp_path, "pipelines.yml", pipelines_yml)
+    pipeline = ConfigParser("a_pipeline", path=tmp_path).parse()
+
+    assert pipeline.name == 'a_pipeline'
+    assert pipeline.current_job is None
+    assert isinstance(pipeline.inputs, Inputs)
+    assert len(pipeline.inputs) == 0
+    assert isinstance(pipeline.outputs, list)
+    assert len(pipeline.outputs) == 0
+    assert pipeline.inputs.config == AttrDict()
+    assert 'config' not in pipeline.inputs
+
+    # try to run it
+    pipeline()
+    assert pipeline.completed
+
+
+
+def test_build__circular_pipeline(tmp_path):
+    pipelines_yml_circular = """
+a_pipeline:
+    steps:
+        - nop.do_nothing: nop.do_nothing
+"""
+
+    with pytest.raises(graphlib.CycleError):
+        make_tmp(tmp_path, "nop.py", nop_py, parent='a_pipeline')
+        make_tmp(tmp_path, "pipelines.yml", pipelines_yml_circular)
+        pipeline = ConfigParser("a_pipeline", path=tmp_path).parse()
+        pipeline()
+        assert pipeline.completed
+
 
 
 def test_bad_python_file(tmp_path):
+    nop_py_bad = """
+def do_nothing():
+    syntax error in file
+"""
+
     with pytest.raises(ImportedCodeFailed):
-        make_tmp(tmp_path, "nop.py", "def do_nothing():\nwrong python file", parent='a_pipeline')
+        make_tmp(tmp_path, "nop.py", nop_py_bad, parent='a_pipeline')
         make_tmp(tmp_path, "pipelines.yml", "a_pipeline:\n  steps:\n    - nop.do_nothing")
         ConfigParser("a_pipeline", path=tmp_path).parse()
 
 
 def test_build_pipeline(tmp_path):
-    make_tmp(tmp_path, "nop.py", "def do_nothing():\n    pass", parent='a_pipeline')
-    make_tmp(tmp_path, "pipelines.yml", "a_pipeline:\n  steps:\n    - nop.do_nothing")
-    ConfigParser("a_pipeline", path=tmp_path).parse()
+    python_file = """
+def do_nothing():
+    pass
+
+def do_something():
+    return {'value': 99.0}
+"""
+
+    pipelines_yml = """
+a_pipeline:
+    inputs:
+        - utils.DummyInput
+
+    expose:
+        - DummyInput:
+            - whatever: one
+        - utils.DummyInput:
+            - whatever: two
+        - utils.DummyInput:
+            - whatever: three
+
+    outputs:
+        - utils.DummyOutput
+
+    steps:
+        - just.do_nothing
+        - just.do_something: just.do_nothing
+"""
+
+    make_tmp(tmp_path, "just.py", python_file, parent='a_pipeline')
+    make_tmp(tmp_path, "pipelines.yml", pipelines_yml)
+    pipeline = ConfigParser("a_pipeline", path=tmp_path).parse()
+
+    assert pipeline.name == 'a_pipeline'
+    assert pipeline.current_job is None
+    assert isinstance(pipeline.inputs, Inputs)
+    assert len(pipeline.inputs) == 3
+    assert 'one' in pipeline.inputs
+    assert 'two' in pipeline.inputs
+    assert 'three' in pipeline.inputs
+    assert isinstance(pipeline.outputs, list)
+    assert len(pipeline.outputs) == 1
+    assert pipeline.inputs.config == AttrDict()
+    assert 'config' not in pipeline.inputs
+
+    # try to run it
+    pipeline()
+    assert pipeline.completed
+
+
+def test_very_long_pipeline(tmp_path):
+    num = 100
+
+    python_file = '\n'.join([f"""
+def do_nothing_{i}():
+    pass
+
+""" for i in range(num)])
+
+    pipelines_yml = """
+a_pipeline:
+    inputs:
+        - utils.DummyInput
+
+    expose:
+        - DummyInput:
+            - whatever: one
+        - utils.DummyInput:
+            - whatever: two
+        - utils.DummyInput:
+            - whatever: three
+
+    outputs:
+        - utils.DummyOutput
+
+    steps:""" + '\n'.join([f"""
+        - just.do_nothing_{i}
+        """ for i in range(num)])
+
+    make_tmp(tmp_path, "just.py", python_file, parent='a_pipeline')
+    make_tmp(tmp_path, "pipelines.yml", pipelines_yml)
+    pipeline = ConfigParser("a_pipeline", path=tmp_path).parse()
+    pipeline()
+    assert pipeline.completed
 
 
 def test_build_pipeline_nodir(tmp_path):

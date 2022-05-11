@@ -12,9 +12,14 @@ from cerberus.validator import DocumentError
 
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
-from yapp.core.errors import (ConfigurationError, EmptyConfiguration,
-                              ImportedCodeFailed, MissingConfiguration,
-                              MissingEnv, MissingPipeline)
+from yapp.core.errors import (
+    ConfigurationError,
+    EmptyConfiguration,
+    ImportedCodeFailed,
+    MissingConfiguration,
+    MissingEnv,
+    MissingPipeline,
+)
 
 
 def env_constructor(loader, node):

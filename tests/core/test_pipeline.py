@@ -36,6 +36,7 @@ def hook_factory(expected_job, expected_job_name):
 def test_empty_pipeline():
     pipeline = Pipeline([])
     pipeline()
+    assert pipeline.completed
 
 
 def pipeline_common_asserts(pipeline, *args, **kwargs):
@@ -46,6 +47,7 @@ def pipeline_common_asserts(pipeline, *args, **kwargs):
 
     pipeline(*args, **kwargs)
 
+    assert pipeline.completed
     assert pipeline.inputs is not None
     assert pipeline.outputs is not None
 
@@ -69,12 +71,16 @@ def test_simple_pipeline():
 def test_outputadapter(capfd):
     pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=[DummyOutput])
     pipeline()
-    out, err = capfd.readouterr()
+    assert pipeline.completed
+
+    out, _ = capfd.readouterr()
     assert out.strip() == "a_value -15"
 
     pipeline = Pipeline([DummyJob, DummyJob2], name="test_pipeline", outputs={DummyOutput})
     pipeline()
-    out, err = capfd.readouterr()
+    assert pipeline.completed
+
+    out, _ = capfd.readouterr()
     outs = out.rstrip().split('\n')
     assert len(outs) == 2
     assert outs[0] == "a_value -15"
@@ -89,7 +95,9 @@ def test_bad_inputs():
 
     # Doesn't raise error
     pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=DummyOutput)
-    pipeline()  # not a list
+    pipeline()
+    assert pipeline.completed
+
 
     with pytest.raises(ValueError):
         # not an Inputs
@@ -107,6 +115,7 @@ def test_runtime_inputs_outputs():
         [DummyJob], name="test_pipeline", inputs=inputs, outputs=[DummyOutput]
     )
     pipeline()
+    assert pipeline.completed
 
 
 def test_hooks():
@@ -126,6 +135,7 @@ def test_hooks():
         outputs=[DummyOutput]
     )
     pipeline()
+    assert pipeline.completed
 
 
 class ReturnsNoneJob(Job):
@@ -152,6 +162,7 @@ def test_empty_output(capfd):
 def test_ignore_empty_output(capfd):
     pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline", outputs=[DummyOutput])
     pipeline()
+    assert pipeline.completed
 
     out, _ = capfd.readouterr()
     assert out == ""
@@ -168,6 +179,7 @@ class PrintFinalOutput(OutputAdapter):
 def test_save_results(capfd):
     pipeline = Pipeline([DummyJob], outputs=PrintFinalOutput)
     pipeline(save_results="a_value")
+    assert pipeline.completed
 
     out, _ = capfd.readouterr()
     assert out == "a_value = -15"
@@ -176,6 +188,7 @@ def test_save_results(capfd):
 def test_save_results_default(capfd):
     pipeline = Pipeline([DummyJob], outputs=DummyOutput)
     pipeline(save_results="a_value")
+    assert pipeline.completed
 
     out, _ = capfd.readouterr()
     outs = out.strip().split('\n')
