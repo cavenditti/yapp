@@ -1,7 +1,17 @@
-from psycopg2 import connect
+from sqlalchemy import create_engine
 
 from .sql import SqlInput, SqlOutput
 
+
+def make_pgsql_connection(
+        username,
+        password,
+        host,
+        port,
+        database):
+    return create_engine(
+            f'postgresql://{username}:{password}@{host}:{port}/{database}'
+            )
 
 class PgSqlInput(SqlInput):
     """
@@ -19,9 +29,7 @@ class PgSqlInput(SqlInput):
         schema=None,
         where_clause=None
     ):
-        connection = connect(
-            user=username, password=password, host=host, port=port, dbname=database
-        )
+        connection = make_pgsql_connection(username, password, host, port, database)
         super().__init__(connection, schema=schema, where_clause=where_clause)
 
 
@@ -31,7 +39,5 @@ class PgSqlOutput(SqlOutput):
     """
 
     def __init__(self, *, username, password, host, port, database, schema=None):
-        connection = connect(
-            user=username, password=password, host=host, port=port, dbname=database
-        )
+        connection = make_pgsql_connection(username, password, host, port, database)
         super().__init__(connection, schema=schema)
