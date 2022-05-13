@@ -1,68 +1,86 @@
 #
 # This is an example yapp-pipelines configuration file
-# You can also look at pipelines_annotated.yml for an extensively annotated version of this file
+# You can also look at pipelines_annotated.yml
+# for an extensively annotated version of this file
 #
 
 +all:
   hooks:
-    on_job_start:
-      - common.UselessHook.whatever
+    - run: common.UselessHook.whatever
+      on: job_start
+
 
 simple_task:
   inputs:
-    - file.CsvInput:
+    - from: file.CsvInput
+      with:
         directory: "./data"
-    - pandas.read_csv
-
-  expose:
-    - pandas.read_csv:
-      - "./data/a_csv_file.csv": example_csv
+    - from: pandas.read_csv
+      expose:
+        - use: "./data/a_csv_file.csv"
+          as: example_csv
 
   hooks:
-    on_job_start:
-      - common.UselessHook.whatever
-    on_pipeline_start:
-      - common.UselessHook.whatever
+    - run: common.UselessHook.whatever
+      on: job_start
+    - run: common.UselessHook.whatever
+      on: pipeline_start
 
   steps:
-    - common.PreProcessor
-    - MainTask: common.PreProcessor
-    - Later.print_something: MainTask
+    - run: common.PreProcessor
+    - run: MainTask
+      after: common.PreProcessor
+    - run: Later.print_something
+      after: MainTask
 
 
-sligthly_more_complex :
+sligthly_more_complex:
   inputs:
-    - pgsql.PgSqlInput:
+    - name: pg_input
+      from: pgsql.PgSqlInput
+      with:
         username: carlo
         password:
         host: localhost
         port: 5432
         database: postgres
-    - utils.DummyInput
-    - file.CsvInput:
+      expose:
+        - use: dataset
+          as: dataset
+    - from: utils.DummyInput
+      expose:
+        - use: "whatever"
+          as: anempytdataframe
+    - from: file.CsvInput
+      expose:
+        - use: "a_csv_file.csv"
+          as: example_csv
+      with:
         directory: "./data"
 
   outputs:
-    - pgsql.PgSqlOutput:
+    - to: pgsql.PgSqlOutput
+      with:
         username: carlo
         password: !env PG_PWD
         host: localhost
         port: 5432
         database: postgres
 
-  expose:
-    - PgSqlInput:
-      - dataset: dataset
-    - file.CsvInput:
-      - "a_csv_file.csv": example_csv
-    - utils.DummyInput:
-      - "whatever" : anempytdataframe
-
   steps:
-    - common.PreProcessor
-    - PredictorA: common.PreProcessor
-    - PredictorB: common.PreProcessor
-    - PredictorC: common.PreProcessor
-    - Ensemble: [PredictorA, PredictorB, PredictorC]
-    - common.PostProcessor: Ensemble
+    - run: common.PreProcessor
 
+    - run: PredictorA
+      after: common.PreProcessor
+
+    - run: PredictorB
+      after: common.PreProcessor
+
+    - run: PredictorC
+      after: common.PreProcessor
+
+    - run: Ensemble
+      after: [PredictorA, PredictorB, PredictorC]
+
+    - run: common.PostProcessor
+      after: Ensemble

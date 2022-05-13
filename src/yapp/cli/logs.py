@@ -133,14 +133,15 @@ class LogFormatter(logging.Formatter):
         msg = str(record.msg) % record.args
 
         if record.exc_info:
-            msg = "> " + self.formatException(record.exc_info)
+            msg = ">> " + self.formatException(record.exc_info)
 
+        # TODO use loglevel
         # This could be done using levelno instead of logging into the message but that way there
         # would be no highlight in the file output which has no color output
-        if msg.startswith("> "):
+        if msg.startswith(">> ") or record.levelno >= logging.WARNING:
             head = self.get_color(record.levelno) + head
-            # msg = self.get_color(logging.DEBUG) + msg[2:] + self.get_color()
-            msg = msg[2:] + self.get_color()
+        elif msg.startswith("> "):
+            msg = self.get_color(logging.DEBUG) + msg[2:] + self.get_color()
         else:
             head = self.get_color(record.levelno) + head + self.get_color()
 

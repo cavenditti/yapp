@@ -65,6 +65,16 @@ def main():
         help="Print colored output for logs",
     )
 
+    parser.add_argument(
+        "-S",
+        "--skip-validation",
+        action="store_const",
+        dest="skip_validation",
+        const=True,
+        default=False,
+        help="Skip configuration validation, used for test purposes",
+    )
+
     parser.add_argument("pipeline", type=str, help="Pipeline name")
 
     args = parser.parse_args()
@@ -80,7 +90,7 @@ def main():
 
     # Read configuration and create a new pipeline
     try:
-        pipeline = config_parser.parse()
+        pipeline = config_parser.parse(skip_validation=args.skip_validation)
     except YappFatalError as error:
         error.log_and_exit()
     except Exception as error:  # pylint: disable=broad-except

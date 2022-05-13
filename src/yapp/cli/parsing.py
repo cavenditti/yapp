@@ -1,3 +1,4 @@
+from collections import defaultdict
 import graphlib
 import importlib.util
 import inspect
@@ -22,6 +23,12 @@ from yapp.core.errors import (
 )
 
 
+def camel_to_snake(name):
+    """Returns snake_case version of a CamelCase string"""
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+
+
 def env_constructor(loader, node):
     """
     Conctructor to automatically look up for env variables
@@ -33,12 +40,23 @@ def env_constructor(loader, node):
         raise MissingEnv(error.args[0]) from None
 
 
+def do_nothing_constructor(self, node):
+    """
+    Constructor just returning the string for the node
+    """
+    return self.construct_scalar(node)
+
+
 def yaml_read(path):
     """
     Read YAML from path
     """
     # use !env VARIABLENAME to refer env variables
     yaml.add_constructor("!env", env_constructor)
+
+    # Disable awful YAML 1.1 behaviour on booleans-lookalike
+    # If I write 'on' I want 'on', not boolean True
+    yaml.add_constructor("tag:yaml.org,2002:bool", do_nothing_constructor)
 
     try:
         with open(path, "r", encoding="utf-8") as file:
@@ -66,8 +84,6 @@ class ConfigParser:
     # Auxiliary fields, not used for steps definition
     config_fields = valid_fields - {"steps"}
 
-    dict_fields = ["hooks"]
-
     def __init__(self, pipeline_name, path="./", pipelines_file="pipelines.yml"):
         self.pipeline_name = pipeline_name
         self.path = path
@@ -88,8 +104,13 @@ class ConfigParser:
         )
         # Remove eventual trailing ".py" and split at dots
         ref = re.sub(r"\.py$", "", module_name).split(".")
-        # return a possible path for each base_path
+        # same but snake_case
+        ref_snake = re.sub(r"\.py$", "", module_name).split(".")
+        # return a possible path for each base_path for both possible names
         paths = [os.path.join(*[base_path] + ref) for base_path in self.base_paths]
+        paths += [
+            os.path.join(*[base_path] + ref_snake) for base_path in self.base_paths
+        ]
         # try to load from all possible paths
         for path in paths:
             logging.debug("Trying path %s for module %s", path, module_name)
@@ -125,6 +146,12 @@ class ConfigParser:
 
         logging.debug("Found module %s", module)
         return module
+
+    def make_job(self, single_job: dict):  # pylint: disable=no-self-use
+        """Create a single job from its dict Configuration"""
+        step = single_job["run"]
+        after = single_job["after"]
+        params = single_job["with"]
 
     def build_job(self, step):  # pylint: disable=no-self-use
         """
@@ -197,14 +224,11 @@ class ConfigParser:
             for step in step_list:
                 logging.debug('<steps> parsing "%s"', step)
                 # make strings just like the others
-                if isinstance(step, str):
-                    step = {step: {None}}
-                node = list(step.keys())[0]
-                node_parents = step[node]
-                if isinstance(node_parents, str):
-                    dag[node] = {step[node]}
-                else:
-                    dag[node] = set(step[node])
+                after = step.get("after", [])
+                if isinstance(after, str):
+                    after = [after]
+
+                dag[step["run"]] = set(after)
             return dag
 
         steps = make_dag(pipeline_cfg["steps"])
@@ -219,12 +243,10 @@ class ConfigParser:
         logging.debug("Successfully ordered steps: %s", ordered_steps)
 
         # First step should be None: that is there are no dependencies for first step
-        assert ordered_steps[0] is None
+        # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [
-            self.build_job(step) for step in ordered_steps[1:]
-        ]  # ignoring first None
+        jobs = [self.build_job(step) for step in ordered_steps]
 
         if not hooks:
             hooks = {}
@@ -233,17 +255,10 @@ class ConfigParser:
             jobs, name=self.pipeline_name, inputs=inputs, outputs=outputs, **hooks
         )
 
-    def create_adapter(self, adapter_def):
+    def create_adapter(self, adapter_name: str, params: dict):
         """
         Loads the relevant module and instantiates an adapter from it
         """
-        # get adapter name and prepare contructor params (if any)
-        params = {}
-        if isinstance(adapter_def, dict):
-            adapter_name = next(iter(adapter_def))
-            params = adapter_def[adapter_name]
-        else:  # str
-            adapter_name = adapter_def
 
         # load module and get attr Class
         # Should be in the form module.Class,
@@ -263,37 +278,52 @@ class ConfigParser:
             args = []
         return adapter_class(*args, **params)
 
-    def build_inputs(self, cfg_inputs, cfg_expose):
+    def make_input(self, single_input: dict):
+        """Create a single input from its dict Configuration"""
+        logging.debug('<inputs> parsing "%s"', single_input)
+        adapter_name = single_input["from"]
+        params = single_input.get("with", {})
+        expose_list = single_input.get("expose", [])
+
+        input_adapter = self.create_adapter(adapter_name, params)
+
+        logging.debug("Created input adapter %s", input_adapter)
+        return input_adapter, expose_list
+
+    def build_inputs(self, cfg_inputs):
         """
         Sets up inputs from `inputs` and `expose` fields in YAML files
         """
         logging.debug("Starting input creation")
 
         sources = set()
-        for input_def in cfg_inputs:
-            logging.debug('<inputs> parsing "%s"', input_def)
+        exposed = {}
 
-            adapter = self.create_adapter(input_def)
-            logging.debug("Created input adapter %s", adapter)
+        for input_def in cfg_inputs:
+            adapter, exposed_list = self.make_input(input_def)
             sources.add(adapter)
+            exposed[adapter.__class__.__name__] = exposed_list
+
         inputs = Inputs(sources=sources)
 
-        for expose_def in cfg_expose:
-            logging.debug('<expose> parsing "%s"', expose_def)
-            key = next(iter(expose_def))
-            for item in expose_def[key]:
-                exposed_var = next(iter(item))
-                if "." in item[exposed_var]:
-                    raise ValueError("Dots not allowed in exposed names")
-                # FIXME better keep the whole name as key to avoid conflicts
-                # needs to change Inputs class
-                if "." in key:
-                    _, adapter_name = key.rsplit(".", 1)
-                else:
-                    adapter_name = key
-                inputs.expose(adapter_name, exposed_var, item[exposed_var])
+        for name in exposed:
+            for to_expose in exposed[name]:
+                logging.debug(
+                    "Exposing %s %s %s", name, to_expose["use"], to_expose["as"]
+                )
+                inputs.expose(name, to_expose["use"], to_expose["as"])
 
         return inputs
+
+    def make_output(self, single_output: dict):
+        """Create a single output from its dict Configuration"""
+        logging.debug('<outputs> parsing "%s"', single_output)
+        adapter_name = single_output["to"]
+        params = single_output.get("with", {})
+
+        adapter = self.create_adapter(adapter_name, params)
+        logging.debug("Created output adapter %s", adapter)
+        return adapter
 
     def build_outputs(self, cfg_outputs):
         """
@@ -301,12 +331,29 @@ class ConfigParser:
         """
         outputs = set()
         for output_def in cfg_outputs:
-            logging.debug('<outputs> parsing "%s"', output_def)
-
-            adapter = self.create_adapter(output_def)
-            logging.debug("Created output adapter %s", adapter)
+            adapter = self.make_output(output_def)
             outputs.add(adapter)
         return outputs
+
+    def make_hook(self, single_hook: dict):
+        """Create a single hook from its dict Configuration"""
+        run = single_hook["run"]
+        hook_name = single_hook["on"]
+
+        # check if a valid hook
+        if hook_name not in Pipeline.VALID_HOOKS:
+            raise ValueError(
+                f"""Invalid hook specified: {hook_name}.
+Hooks can be one of {Pipeline.VALID_HOOKS}"""
+            )
+
+        module_name, func_name = run.rsplit(".", 1)
+        module = self.load_module(module_name)
+        func = getattr(module, func_name)
+        logging.debug(
+            "Using function: %s from module %s as %s", func_name, module_name, hook_name
+        )
+        return hook_name, func
 
     def build_hooks(self, cfg_hooks):
         """
@@ -317,43 +364,17 @@ class ConfigParser:
         if not cfg_hooks:
             return {}
 
-        hooks = {}
-        for hook_tuple in cfg_hooks.items():
-            logging.debug('<hooks> parsing "%s"', hook_tuple)
-            hook_name, hooks_list = hook_tuple
+        hooks = defaultdict(list)
 
-            # check if a valid hook
-            if hook_name not in Pipeline.VALID_HOOKS:
-                raise ValueError(
-                    f"""Invalid hook specified: {hook_name}.
-    Hooks can be one of {Pipeline.VALID_HOOKS}"""
-                )
-
-            hooks[hook_name] = []
-
-            # Then for each function in the list try to load it
-            for hook in hooks_list:
-                module_name, func_name = hook.rsplit(".", 1)
-                module = self.load_module(module_name)
-                func = getattr(module, func_name)
-                logging.debug(
-                    "Using function: %s from module %s", func_name, module_name
-                )
-                hooks[hook_name].append(func)
-            logging.debug("AO: %s %s", hook_name, hooks[hook_name])
+        for hook_dict in cfg_hooks:
+            logging.debug('<hooks> parsing "%s"', hook_dict)
+            hook_name, func = self.make_hook(hook_dict)
+            hooks[hook_name].append(func)
 
         logging.debug('Parsed hooks: %s"', hooks)
         return hooks
 
-    def parse(self):
-        """
-        Reads and parses pipelines.yml, creates a pipeline object
-        """
-
-        # Read yaml configuration and validate it
-        pipelines_yaml = yaml_read(self.pipelines_file)
-        logging.debug("Loaded YAML: %s", pipelines_yaml)
-
+    def do_validation(self, pipelines_yaml):
         try:
             config_errors = validate(pipelines_yaml)
         except DocumentError as error:
@@ -370,6 +391,18 @@ class ConfigParser:
         else:
             logging.debug("Configuration OK")
 
+    def parse(self, skip_validation=False):
+        """
+        Reads and parses pipelines.yml, creates a pipeline object
+        """
+
+        # Read yaml configuration and validate it
+        pipelines_yaml = yaml_read(self.pipelines_file)
+        logging.debug("Loaded YAML: %s", pipelines_yaml)
+
+        if not skip_validation:
+            self.do_validation(pipelines_yaml)
+
         # Check if requested pipeline is in config and get only its config
         if self.pipeline_name not in pipelines_yaml:
             raise MissingPipeline(self.pipeline_name)
@@ -382,43 +415,29 @@ class ConfigParser:
             logging.debug("'+all' not found: no global configuration defined.")
             cfg = {}
 
+        # make a defaultdict to simplify missing fields handling
+        cfg = defaultdict(list, cfg)
+
         logging.debug("Starting config merge")
         logging.debug("Pipeline config: %s", pipeline_cfg)
         logging.debug("Global config: %s", cfg)
 
-        # used to merge fields from specific and global configurations
-        def merge_field(dict_a: dict, dict_b: dict, field: str) -> dict:
-            """
-            Appends the list dict_b[field] to the list dict_a[field] and returns dict_a
-            """
-            dict_a[field] = dict_a.get(field, [])
-            b_list = dict_b.get(field, [])
-            dict_a[field] += b_list
-            return dict_a
-
         # overwrite global with pipeline specific
         for field in ConfigParser.config_fields:
             logging.debug("merging field %s", field)
-            # empty dictionaries if missing
             logging.debug(
                 "pipeline field: %s",
                 pipeline_cfg[field] if field in pipeline_cfg else "missing",
             )
             logging.debug("global field: %s", cfg[field] if field in cfg else "missing")
-            if field in ConfigParser.dict_fields:
-                cfg[field] = cfg.get(field, {})
-                pipeline_cfg[field] = pipeline_cfg.get(field, {})
-                for subfield in pipeline_cfg[field]:
-                    cfg[field] = merge_field(cfg[field], pipeline_cfg[field], subfield)
-                cfg[field].update(pipeline_cfg[field])
-            else:
-                cfg = merge_field(cfg, pipeline_cfg, field)
+            # actual configuration merging
+            cfg[field] += pipeline_cfg.get(field, [])
             logging.debug("merged field: %s", cfg[field])
 
         logging.debug("Merged pipeline config: %s", cfg)
 
         # Building objects
-        inputs = self.build_inputs(cfg["inputs"], cfg["expose"])
+        inputs = self.build_inputs(cfg["inputs"])
         outputs = self.build_outputs(cfg["outputs"])
         hooks = self.build_hooks(cfg["hooks"])
         pipeline = self.build_pipeline(

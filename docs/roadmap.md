@@ -22,7 +22,9 @@ $pipeline:  # pipeline name or "+all"
 		  source: $input
 		  $args
 		  expose:
-			  - $data: $alias
+			  - use: $data
+				as: $alias
+				$args
 
 		- $input: $input_name # input_name is optional
 		  $args
@@ -69,7 +71,7 @@ $pipeline:  # pipeline name or "+all"
 	# required
 	steps:
 		- do: $step
-		  input:
+		  inputs:
 			- from: $input_name
 			  use: $data
 			  as: $alias
@@ -79,3 +81,49 @@ $pipeline:  # pipeline name or "+all"
 One might also thing about a kind of hybrid approach: allowing to specify aliases for inputs
 inside the definition, that are automatically used inside the jobs, while also allowing to also just
 define them inside steps.
+
+Enclosing all parameters in a `with` field
+
+``` yaml title="alt-alt pipelines.yml specification"
+$pipeline:  # pipeline name or "+all"
+	# optional
+	inputs:
+		- name: $input_name # name is optional
+		  from: $input
+		  with:
+			  $args
+		  expose:
+			  - use: $data
+				as: $alias
+				with:
+					$args
+
+	# optional
+	outputs:
+		- name: $output_name # name is optional
+		  to: $output
+		  with:
+			  $args
+
+	# optional
+	hooks:
+		- run: $hook_func
+		  on: $hook_event
+		  with:
+			  $args
+
+	# required
+	steps:
+		- do: $step
+		  with:
+			  $args
+		  inputs:
+			- from: $input_name
+			  use: $data
+			  with:
+				  $args
+			  as: $alias
+		  after: $other_steps
+```
+
+This feels more consistent.

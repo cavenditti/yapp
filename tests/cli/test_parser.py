@@ -57,7 +57,7 @@ def test_build_simple_pipeline(tmp_path):
     pipelines_yml = """
 a_pipeline:
     steps:
-        - nop.do_nothing
+        - run: nop.do_nothing
 """
 
     make_tmp(tmp_path, "nop.py", nop_py, parent='a_pipeline')
@@ -83,7 +83,8 @@ def test_build__circular_pipeline(tmp_path):
     pipelines_yml_circular = """
 a_pipeline:
     steps:
-        - nop.do_nothing: nop.do_nothing
+        - run: nop.do_nothing
+          after: nop.do_nothing
 """
 
     with pytest.raises(graphlib.CycleError):
@@ -119,22 +120,22 @@ def do_something():
     pipelines_yml = """
 a_pipeline:
     inputs:
-        - utils.DummyInput
-
-    expose:
-        - DummyInput:
-            - whatever: one
-        - utils.DummyInput:
-            - whatever: two
-        - utils.DummyInput:
-            - whatever: three
+        - from: utils.DummyInput
+          expose:
+            - use: whatever
+              as: one
+            - use: whatever
+              as: two
+            - use: whatever
+              as: three
 
     outputs:
-        - utils.DummyOutput
+        - to: utils.DummyOutput
 
     steps:
-        - just.do_nothing
-        - just.do_something: just.do_nothing
+        - run: just.do_nothing
+        - run: just.do_something
+          after: just.do_nothing
 """
 
     make_tmp(tmp_path, "just.py", python_file, parent='a_pipeline')
@@ -170,21 +171,20 @@ def do_nothing_{i}():
     pipelines_yml = """
 a_pipeline:
     inputs:
-        - utils.DummyInput
-
-    expose:
-        - DummyInput:
-            - whatever: one
-        - utils.DummyInput:
-            - whatever: two
-        - utils.DummyInput:
-            - whatever: three
+        - from: utils.DummyInput
+          expose:
+            - use: whatever
+              as: one
+            - use: whatever
+              as: two
+            - use: whatever
+              as: three
 
     outputs:
-        - utils.DummyOutput
+        - to: utils.DummyOutput
 
     steps:""" + '\n'.join([f"""
-        - just.do_nothing_{i}
+        - run: just.do_nothing_{i}
         """ for i in range(num)])
 
     make_tmp(tmp_path, "just.py", python_file, parent='a_pipeline')

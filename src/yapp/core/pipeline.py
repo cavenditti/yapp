@@ -37,10 +37,10 @@ class Pipeline:
     OK_LOGLEVEL = logging.INFO
 
     VALID_HOOKS = [
-        "on_pipeline_start",
-        "on_pipeline_finish",
-        "on_job_start",
-        "on_job_finish",
+        "pipeline_start",
+        "pipeline_finish",
+        "job_start",
+        "job_finish",
     ]
 
     started_at = None
@@ -175,7 +175,13 @@ class Pipeline:
         # Increase nesting level
         self.__nested_timed_calls += 1
         # TODO find some better idea for this
-        prefix = ">" if self.__nested_timed_calls < 3 else ""
+        #prefix = ">" if self.__nested_timed_calls < 3 else ""
+        if typename == 'pipeline':
+            prefix = ">>"
+        elif self.__nested_timed_calls < 3:
+            prefix = ">"
+        else:
+            prefix = ""
 
         logging.info("%s Starting %s %s", prefix, typename, name)
         start = datetime.now()
@@ -205,7 +211,7 @@ class Pipeline:
         args = inspect.getfullargspec(job.execute).args[1:]
         logging.debug("Required inputs for %s: %s", job.name, args)
 
-        self.run_hook("on_job_start")
+        self.run_hook("job_start")
 
         # call execute with right inputs
         #
@@ -219,7 +225,7 @@ class Pipeline:
             list(last_output.keys()) if isinstance(last_output, dict) else last_output,
         )
 
-        self.run_hook("on_job_finish")
+        self.run_hook("job_finish")
 
         # save output and merge into inputs for next steps
         if isinstance(last_output, dict):
@@ -261,7 +267,7 @@ class Pipeline:
 
     def _run(self):
         """Runs all Pipeline's jobs"""
-        self.run_hook("on_pipeline_start")
+        self.run_hook("pipeline_start")
 
         for job_class in self.job_list:
             logging.debug('Instantiating new job from "%s"', job_class)
@@ -271,7 +277,7 @@ class Pipeline:
                 "job", job_obj.name, self._run_job, job_obj, _update_object=job_obj
             )
 
-        self.run_hook("on_pipeline_finish")
+        self.run_hook("pipeline_finish")
 
         # should this be done here or before the hook?
         for output_name in self.save_results:
