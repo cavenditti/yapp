@@ -3,15 +3,9 @@ from sqlalchemy import create_engine
 from .sql import SqlInput, SqlOutput
 
 
-def make_pgsql_connection(
-        username,
-        password,
-        host,
-        port,
-        database):
-    return create_engine(
-            f'postgresql://{username}:{password}@{host}:{port}/{database}'
-            )
+def make_pgsql_connection(username, password, host, port, database):
+    return create_engine(f"postgresql://{username}:{password}@{host}:{port}/{database}")
+
 
 class PgSqlInput(SqlInput):
     """
@@ -27,7 +21,7 @@ class PgSqlInput(SqlInput):
         port,
         database,
         schema=None,
-        where_clause=None
+        where_clause=None,
     ):
         connection = make_pgsql_connection(username, password, host, port, database)
         super().__init__(connection, schema=schema, where_clause=where_clause)

@@ -13,8 +13,8 @@ class SqlInput(InputAdapter):
     """
 
     def __init__(self, conn, schema=None, where_clause=None):
-        self.schema = schema
         self.conn = conn
+        self.schema = schema
         self.where_clause = where_clause
 
     def get(self, table_name):
