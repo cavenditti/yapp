@@ -4,6 +4,16 @@ from .sql import SqlInput, SqlOutput
 
 
 def make_pgsql_connection(username, password, host, port, database):
+    """
+    Create PostgreSQL connection using SQLAlchemy `create_engine`
+
+    Args:
+        username:
+        password:
+        host:
+        port:
+        database:
+    """
     return create_engine(f"postgresql://{username}:{password}@{host}:{port}/{database}")
 
 

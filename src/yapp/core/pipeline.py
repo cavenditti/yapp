@@ -175,8 +175,8 @@ class Pipeline:
         # Increase nesting level
         self.__nested_timed_calls += 1
         # TODO find some better idea for this
-        #prefix = ">" if self.__nested_timed_calls < 3 else ""
-        if typename == 'pipeline':
+        # prefix = ">" if self.__nested_timed_calls < 3 else ""
+        if typename == "pipeline":
             prefix = ">>"
         elif self.__nested_timed_calls < 3:
             prefix = ">"

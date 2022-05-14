@@ -38,7 +38,7 @@ def test_build_outputs():
     pass
 
 
-def test_build_job():
+def test_build_job_class():
     pass
 
 
@@ -52,16 +52,16 @@ def do_nothing():
    pass
 """
 
-def test_build_simple_pipeline(tmp_path):
-
-    pipelines_yml = """
+basic_pipelines_yml = """
 a_pipeline:
     steps:
         - run: nop.do_nothing
 """
 
+def test_build_simple_pipeline(tmp_path):
+
     make_tmp(tmp_path, "nop.py", nop_py, parent='a_pipeline')
-    make_tmp(tmp_path, "pipelines.yml", pipelines_yml)
+    make_tmp(tmp_path, "pipelines.yml", basic_pipelines_yml)
     pipeline = ConfigParser("a_pipeline", path=tmp_path).parse()
 
     assert pipeline.name == 'a_pipeline'
@@ -104,7 +104,7 @@ def do_nothing():
 
     with pytest.raises(ImportedCodeFailed):
         make_tmp(tmp_path, "nop.py", nop_py_bad, parent='a_pipeline')
-        make_tmp(tmp_path, "pipelines.yml", "a_pipeline:\n  steps:\n    - nop.do_nothing")
+        make_tmp(tmp_path, "pipelines.yml", basic_pipelines_yml)
         ConfigParser("a_pipeline", path=tmp_path).parse()
 
 
@@ -196,7 +196,7 @@ a_pipeline:
 
 def test_build_pipeline_nodir(tmp_path):
     make_tmp(tmp_path, "nop.py", "def do_nothing():\n    pass")
-    make_tmp(tmp_path, "pipelines.yml", "a_pipeline:\n  steps:\n    - nop.do_nothing")
+    make_tmp(tmp_path, "pipelines.yml", basic_pipelines_yml)
     ConfigParser("a_pipeline", path=tmp_path).parse()
 
 

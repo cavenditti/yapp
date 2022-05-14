@@ -1,11 +1,11 @@
 import logging
 import re
 
-from cerberus import Validator
+from cerberus import Validator, schema_registry
 from cerberus.errors import BasicErrorHandler
-from cerberus import schema_registry
 
 from yapp import Pipeline
+from yapp.core.errors import EmptyConfiguration
 
 
 class ErrorHandler(BasicErrorHandler):  # pylint: disable=abstract-method
@@ -37,11 +37,41 @@ def check_code_reference(field, value, error):
         error(field, f"{value} is not a valid reference string")
 
 
+input_expose_schema = {
+    "use": {"required": True, "type": "string"},
+    "as": {"required": True, "type": ["string", "list"]},
+}
+
+schema_registry.add("expose", input_expose_schema.copy())
+
+# for step expose require from field
+input_expose_schema.update({"from": {"required": True, "type": "string"}})
+schema_registry.add("step_expose", input_expose_schema)
+
 schema_registry.add(
-    "expose",
+    "inputs",
     {
-        "use": {"required": True, "type": "string"},
-        "as": {"required": True, "type": ["string", "list"]},
+        "from": {"required": True, "type": "string"},
+        "with": {"required": False, "type": "dict"},
+        "expose": {
+            "required": False,
+            "type": "list",
+            "schema": {
+                "type": "dict",
+                "schema": "expose",
+            },
+        },
+        "name": {"required": False, "type": "string"},
+    },
+)
+
+schema_registry.add(
+    "outputs",
+    {
+        "to": {"required": True, "type": "string"},
+        "with": {"required": False, "type": "dict"},
+        # "save": {"type": "to_save"},
+        "name": {"required": False, "type": "string"},
     },
 )
 
@@ -63,6 +93,8 @@ schema_registry.add(
         "run": {"required": True, "type": "string"},
         "after": {"required": False, "type": ["string", "list"]},
         "with": {"required": False, "type": "dict"},
+        "inputs": {"required": False, "type": "dict", "schema": "step_expose"},
+        "name": {"required": False, "type": "string"},
     },
 )
 
@@ -74,18 +106,7 @@ pipeline_schema = {
         "schema": {
             "allow_unknown": False,
             "type": "dict",
-            "schema": {
-                "from": {"required": True, "type": "string"},
-                "with": {"required": False, "type": "dict"},
-                "expose": {
-                    "required": False,
-                    "type": "list",
-                    "schema": {
-                        "type": "dict",
-                        "schema": "expose",
-                    },
-                },
-            },
+            "schema": "inputs",
         },
     },
     "steps": {
@@ -93,6 +114,7 @@ pipeline_schema = {
         "type": "list",
         "schema": {
             "type": "dict",
+            "allow_unknown": False,
             "schema": "step",
         },
     },
@@ -102,11 +124,7 @@ pipeline_schema = {
         "schema": {
             "allow_unknown": False,
             "type": "dict",
-            "schema": {
-                "to": {"required": True, "type": "string"},
-                "with": {"required": False, "type": "dict"},
-                # "save": {"type": "to_save"},
-            },
+            "schema": "outputs",
         },
     },
     "hooks": {
@@ -114,10 +132,14 @@ pipeline_schema = {
         "type": "list",
         "schema": {
             "type": "dict",
+            "allow_unknown": False,
             "schema": "hook",
         },
     },
 }
+
+# used for special `+all` field
+all_schema = {key: value for key, value in pipeline_schema.items() if key != "steps"}
 
 
 def validate(definitions):
@@ -125,9 +147,15 @@ def validate(definitions):
     Validate schema for definitions from YAML file
     """
 
+    if not definitions:
+        raise EmptyConfiguration()
+
     validator = Validator(error_handler=ErrorHandler)
-    validator.schema = {}
+    validator.schema = {
+        "+all": {"required": False, "type": "dict", "schema": all_schema}
+    }
     validator.allow_unknown = {"type": "dict", "schema": pipeline_schema}
+
     validator.validate(definitions)
 
     return validator.errors

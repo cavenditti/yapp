@@ -1,4 +1,3 @@
-from collections import defaultdict
 import graphlib
 import importlib.util
 import inspect
@@ -6,16 +5,15 @@ import logging
 import os
 import re
 import types
+from collections import defaultdict
 from types import MethodType
 
 import yaml
-from cerberus.validator import DocumentError
 
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
 from yapp.core.errors import (
     ConfigurationError,
-    EmptyConfiguration,
     ImportedCodeFailed,
     MissingConfiguration,
     MissingEnv,
@@ -147,13 +145,7 @@ class ConfigParser:
         logging.debug("Found module %s", module)
         return module
 
-    def make_job(self, single_job: dict):  # pylint: disable=no-self-use
-        """Create a single job from its dict Configuration"""
-        step = single_job["run"]
-        after = single_job["after"]
-        params = single_job["with"]
-
-    def build_job(self, step):  # pylint: disable=no-self-use
+    def build_job_class(self, step):  # pylint: disable=no-self-use
         """
         Create Job given pipeline and step name
         """
@@ -246,7 +238,7 @@ class ConfigParser:
         # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [self.build_job(step) for step in ordered_steps]
+        jobs = [self.build_job_class(step) for step in ordered_steps]
 
         if not hooks:
             hooks = {}
@@ -306,8 +298,8 @@ class ConfigParser:
 
         inputs = Inputs(sources=sources)
 
-        for name in exposed:
-            for to_expose in exposed[name]:
+        for name, expose_dict in exposed.items():
+            for to_expose in expose_dict:
                 logging.debug(
                     "Exposing %s %s %s", name, to_expose["use"], to_expose["as"]
                 )
@@ -374,11 +366,18 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         logging.debug('Parsed hooks: %s"', hooks)
         return hooks
 
-    def do_validation(self, pipelines_yaml):
-        try:
-            config_errors = validate(pipelines_yaml)
-        except DocumentError as error:
-            raise EmptyConfiguration() from error
+    def do_validation(self, pipelines_yaml: dict):
+        """
+        Performs validation on a dict read from a pipelines.yml file
+
+        Raises:
+            YappFatalError:
+                On invalid configuration
+
+        Args:
+            pipelines_yaml (dict): pipelines_yaml
+        """
+        config_errors = validate(pipelines_yaml)
 
         if config_errors:
             logging.error(
