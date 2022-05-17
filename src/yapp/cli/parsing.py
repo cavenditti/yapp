@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import types
+from copy import copy
 from collections import defaultdict
 from types import MethodType
 
@@ -78,9 +79,9 @@ class ConfigParser:
         "hooks",
         "monitor",
         "config",
-    }  # TODO add generic config directly using "config"
-    # Auxiliary fields, not used for steps definition
-    config_fields = valid_fields - {"steps", "config"}
+    }
+    # Auxiliary fields, all lists
+    config_fields = valid_fields - {"steps", "config", "monitor"}
 
     def __init__(self, pipeline_name, path="./", pipelines_file="pipelines.yml"):
         self.pipeline_name = pipeline_name
@@ -103,7 +104,8 @@ class ConfigParser:
         # Remove eventual trailing ".py" and split at dots
         ref = re.sub(r"\.py$", "", module_name).split(".")
         # same but snake_case
-        ref_snake = re.sub(r"\.py$", "", module_name).split(".")
+        ref_snake = copy(ref)
+        ref_snake[-1] = camel_to_snake(ref_snake[-1])
         # return a possible path for each base_path for both possible names
         paths = [os.path.join(*[base_path] + ref) for base_path in self.base_paths]
         paths += [
@@ -113,7 +115,9 @@ class ConfigParser:
         for path in paths:
             logging.debug("Trying path %s for module %s", path, module_name)
             try:
-                spec = importlib.util.spec_from_file_location(module_name, path + ".py")
+                # Module name may differ from the original name (camel_to_snake)
+                name = os.path.split(path)[-1]
+                spec = importlib.util.spec_from_file_location(name, path + ".py")
             except FileNotFoundError:
                 continue
 
@@ -241,7 +245,7 @@ class ConfigParser:
 
         return job
 
-    def build_pipeline(self, pipeline_cfg, inputs=None, outputs=None, hooks=None):
+    def build_pipeline(self, pipeline_cfg, inputs=None, outputs=None, hooks=None, monitor=None):
         """
         Creates pipeline from pipeline and config definition dicts
         """
@@ -285,7 +289,7 @@ class ConfigParser:
             hooks = {}
 
         return Pipeline(
-            jobs, name=self.pipeline_name, inputs=inputs, outputs=outputs, **hooks
+            jobs, name=self.pipeline_name, inputs=inputs, outputs=outputs, monitor=monitor, **hooks
         )
 
     def create_adapter(self, adapter_name: str, params: dict):
@@ -407,6 +411,16 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         logging.debug('Parsed hooks: %s"', hooks)
         return hooks
 
+    def build_monitor(self, cfg_monitor):
+        """
+        Sets up monitor from `monitor` field in YAML files
+        """
+        if cfg_monitor:
+            module = self.load_module(cfg_monitor['use'])
+            monitor = getattr(module, cfg_monitor['use'])
+            return monitor(**cfg_monitor['with'])
+        return None
+
     def do_validation(self, pipelines_yaml: dict):
         """
         Performs validation on a dict read from a pipelines.yml file
@@ -424,7 +438,7 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
             logging.error(
                 "Configuration errors for pipelines: %s", list(config_errors.keys())
             )
-            if self.pipeline_name in config_errors:
+            if self.pipeline_name in config_errors or "+all" in config_errors:
                 raise ConfigurationError(
                     config_errors, relevant_field=self.pipeline_name
                 )
@@ -481,12 +495,16 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         pipeline_config = pipeline_cfg.get("config", {})
         global_config.update(pipeline_config)
 
+        cfg_monitor = cfg.get("monitor")
+        cfg_monitor = pipeline_cfg.get("monitor", cfg_monitor)
+
         # Building objects
         inputs = self.build_inputs(cfg["inputs"], global_config)
         outputs = self.build_outputs(cfg["outputs"])
         hooks = self.build_hooks(cfg["hooks"])
+        monitor = self.build_monitor(cfg_monitor)
         pipeline = self.build_pipeline(
-            pipeline_cfg, inputs=inputs, outputs=outputs, hooks=hooks
+            pipeline_cfg, inputs=inputs, outputs=outputs, hooks=hooks, monitor=monitor
         )
 
         return pipeline

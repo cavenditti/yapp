@@ -10,6 +10,10 @@
       on: job_start
   config:
     pippo: 12333
+  monitor:
+    use: BasicMonitor
+    with:
+      yup: 'a tunable parameter'
 
 
 simple_task:

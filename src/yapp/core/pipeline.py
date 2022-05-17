@@ -116,6 +116,7 @@ class Pipeline:
             # If monitor object has it, use the method
             if hasattr(monitor, hook_name) and callable(getattr(monitor, hook_name)):
                 new_hooks.append(getattr(monitor, hook_name))
+                logging.debug('Adding %s from monitor: %s', hook_name, monitor)
             setattr(self, hook_name, new_hooks)
 
         # current job if any

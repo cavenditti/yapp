@@ -34,7 +34,7 @@ def check_code_reference(field, value, error):
     if not isinstance(value, str) or (
         not re.match(r"^[a-zA-Z_.][a-zA-Z0-9_.]*[\.[a-zA-Z_.]+[a-zA-Z0-9_.]*]*$", value)
     ):
-        error(field, f"{value} is not a valid reference string")
+        error(field, f'"{value}" is not a valid reference string')
 
 
 input_expose_schema = {
@@ -139,6 +139,14 @@ pipeline_schema = {
     "config": {
         "required": False,
         "type": "dict",
+    },
+    "monitor": {
+        "required": False,
+        "allow_unknown": False,
+        "schema": {
+            "use": {"type": "string", "check_with": check_code_reference},
+            "with": {"required": False, "type": "dict"},
+        },
     },
 }
 
