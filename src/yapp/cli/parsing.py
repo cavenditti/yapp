@@ -6,7 +6,7 @@ import os
 import re
 import types
 from collections import defaultdict
-from types import MethodType, FunctionType
+from types import MethodType
 
 import yaml
 
@@ -145,20 +145,77 @@ class ConfigParser:
         logging.debug("Found module %s", module)
         return module
 
-    def build_job_class(self, step, params):  # pylint: disable=no-self-use
+    def build_new_job_class(
+        self, step, module, func_name, params
+    ):  # pylint: disable=no-self-use
+        """
+        Build new Job subclass at runtime
+        """
+        inner_fn = getattr(module, func_name)
+        logging.debug('Using function "%s" from %s', func_name, module)
+
+        # Writing the execute function to use the loaded function and making it a bound method
+        # of a new created Job subclass. This is black magic.
+
+        # get args and kwargs from inner_fn
+        args = list(inspect.signature(inner_fn).parameters.keys())
+        full_args = map(str, inspect.signature(inner_fn).parameters.values())
+        inner_args = map("=".join, zip(args, args))
+
+        func = f"""def execute (self, {', '.join(full_args)}):
+                    return inner_fn({','.join(inner_args)})
+                    """
+        # logging.debug('Function code: %s', func_body)
+        func = compile(func, step, "exec")
+
+        arg_spec = inspect.getfullargspec(inner_fn)
+        position = len(arg_spec.defaults) if arg_spec.defaults else 0
+        func = types.FunctionType(
+            func.co_consts[position], locals(), step, arg_spec.defaults
+        )
+
+        # class execution namespace
+        def clsexec(namespace):
+            namespace["__module__"] = "yapp.jobs"
+            return namespace
+
+        # It's not actually required to have our new Job subclass to really be a Job subclass
+        # since the execute function is not going to access self anyway, but we may decide in future
+        # to move some logic from Pipeline inside the Job, or add whatever functionality.
+        # So doing things this way may make things easier in the future.
+        class ConcreteJob(Job):  # pylint: disable=missing-class-docstring
+            def execute(self, *inputs, **params):
+                pass
+
+        # Create new Job subclass
+        new_job_class = types.new_class(step, bases=(ConcreteJob,), exec_body=clsexec)
+        new_job_class.execute = MethodType(func, new_job_class)
+        # logging.debug(inspect.signature(new_job_class.execute))
+        new_job_class = Job.register(new_job_class)
+
+        # assign parameters and assign job to return
+        new_job_class.params = params
+        return new_job_class
+
+    def build_job(self, step, params):  # pylint: disable=no-self-use
         """
         Create Job given pipeline and step name
         """
         logging.debug('Building job "%s" for pipeline "%s"', step, self.pipeline_name)
 
+        func_name = "execute"
+        module = None
+
         try:
             module = self.load_module(step)
-            func_name = "execute"
         except FileNotFoundError:
             # maybe it's a function in module, try also loading that
             if "." in step:
                 module_name, func_name = step.rsplit(".", 1)
                 module = self.load_module(module_name)
+
+        if module is None:
+            raise FileNotFoundError(f"Cannot load module {module}")
 
         # Try first loading a Job from the module,
         # if there's none try with execute function
@@ -168,57 +225,12 @@ class ConfigParser:
             job.params = params
             logging.debug("Using Job object %s from %s", step, module)
         except AttributeError:
-            inner_fn = getattr(module, func_name)
-            logging.debug('Using function "%s" from %s', func_name, module)
-
-            # Writing the execute function to use the loaded function and making it a bound method
-            # of a new created Job subclass. This is black magic.
-
-            # get args and kwargs from inner_fn
-            args = list(inspect.signature(inner_fn).parameters.keys())
-            full_args = map(str, inspect.signature(inner_fn).parameters.values())
-            inner_args = map('='.join, zip(args, args))
-
-            func_body = f"""def execute (self, {', '.join(full_args)}):
-                        return inner_fn({','.join(inner_args)})
-                        """
-            #logging.debug('Function code: %s', func_body)
-            step_code = compile(func_body, step, "exec")
-            #exec(step_code)
-
-            arg_spec = inspect.getfullargspec(inner_fn)
-            position = len(arg_spec.defaults) if arg_spec.defaults else 0
-            execute = types.FunctionType(step_code.co_consts[position], locals(), step, arg_spec.defaults)
-
-            # class execution namespace
-            def clsexec(namespace):
-                namespace["__module__"] = "yapp.jobs"
-                return namespace
-
-            # It's not actually required to have our new Job subclass to really be a Job subclass
-            # since the execute function is not going to access self anyway, but we may decide in future
-            # to move some logic from Pipeline inside the Job, or add whatever functionality.
-            # So doing things this way may make things easier in the future.
-            class ConcreteJob(Job):  # pylint: disable=missing-class-docstring
-                def execute(self, *inputs):
-                    pass
-
-            # Create new Job subclass
-            new_job_class = types.new_class(
-                step, bases=(ConcreteJob,), exec_body=clsexec
-            )
-            new_job_class.execute = MethodType(execute, new_job_class)
-            # logging.debug(inspect.signature(new_job_class.execute))
-            new_job_class = Job.register(new_job_class)
-
-            # assign parameters and assign job to return
-            new_job_class.params = params
-            job = new_job_class
+            job = self.build_new_job_class(step, module, func_name, params)
 
         # check for invalid kwargs
         arg_spec = inspect.getfullargspec(job.execute)
         if arg_spec.defaults:
-            kwargs = arg_spec.args[-len(arg_spec.defaults):]
+            kwargs = arg_spec.args[-len(arg_spec.defaults) :]
         else:
             kwargs = []
         for single_param in params:
@@ -267,9 +279,7 @@ class ConfigParser:
         # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [
-            self.build_job_class(step, params_mapping[step]) for step in ordered_steps
-        ]
+        jobs = [self.build_job(step, params_mapping[step]) for step in ordered_steps]
 
         if not hooks:
             hooks = {}
@@ -439,10 +449,10 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         pipeline_cfg = pipelines_yaml[self.pipeline_name]
 
         # read global definitions
-        global_config = {} # used for `config` tag
+        global_config = {}  # used for `config` tag
         try:
             cfg = pipelines_yaml.pop("+all")
-            global_config = cfg.pop('config')
+            global_config = cfg.pop("config")
         except KeyError:
             logging.debug("'+all' not found: no global configuration defined.")
             cfg = {}
@@ -468,7 +478,7 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
 
         logging.debug("Merged pipeline definitions: %s", cfg)
 
-        pipeline_config = pipeline_cfg.get('config', {})
+        pipeline_config = pipeline_cfg.get("config", {})
         global_config.update(pipeline_config)
 
         # Building objects

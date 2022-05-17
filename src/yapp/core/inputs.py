@@ -37,7 +37,7 @@ class Inputs(dict):
             # allow accessing config from jobs
             # not sure if this will remain or not (for sure not here)
             # I didn't add self['config'] in __init__ to keep the right length
-            if key=='config':
+            if key == "config":
                 return self.config
 
             logging.debug('%s Trying to load missing input "%s"', self.__repr__(), key)

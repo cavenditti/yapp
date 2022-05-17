@@ -3,7 +3,6 @@ import logging
 from datetime import datetime
 from typing import Sequence, Set
 
-from .attr_dict import AttrDict
 from .inputs import Inputs
 from .job import Job
 from .monitor import Monitor
@@ -210,7 +209,7 @@ class Pipeline:
         # Get arguments used in the execute function
         arg_spec = inspect.getfullargspec(job.execute)
         if arg_spec.defaults:
-            args = arg_spec.args[1:-len(arg_spec.defaults)]
+            args = arg_spec.args[1 : -len(arg_spec.defaults)]
         else:
             args = arg_spec.args[1:]
         logging.debug("Required inputs for %s: %s", job.name, args)
@@ -289,7 +288,6 @@ class Pipeline:
 
     def __call__(
         self,
-        config=None,
         save_results: Sequence[str] | None = None,
     ):
         """Pipeline entrypoint
@@ -314,12 +312,5 @@ class Pipeline:
             logging.warning("> Missing inputs for pipeline %s", self.name)
         if not self.outputs:
             logging.warning("> Missing outputs for pipeline %s", self.name)
-
-        if not config:
-            config = {}
-
-        # config shorthand, just another input
-        if config:
-            self.inputs.config.update(config)
 
         self.timed("pipeline", self.name, self._run, _update_object=self)
