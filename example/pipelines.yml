@@ -8,6 +8,8 @@
   hooks:
     - run: common.UselessHook.whatever
       on: job_start
+  config:
+    pippo: 12333
 
 
 simple_task:
@@ -29,9 +31,18 @@ simple_task:
   steps:
     - run: common.PreProcessor
     - run: MainTask
+      with:
+        p: 'whatever'
       after: common.PreProcessor
     - run: Later.print_something
       after: MainTask
+      with:
+        b: 22
+        d: "a different value"
+
+  config:
+    pippo: 44
+    franco: 9
 
 
 sligthly_more_complex:

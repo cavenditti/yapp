@@ -208,7 +208,11 @@ class Pipeline:
         """Execution of a single job"""
 
         # Get arguments used in the execute function
-        args = inspect.getfullargspec(job.execute).args[1:]
+        arg_spec = inspect.getfullargspec(job.execute)
+        if arg_spec.defaults:
+            args = arg_spec.args[1:-len(arg_spec.defaults)]
+        else:
+            args = arg_spec.args[1:]
         logging.debug("Required inputs for %s: %s", job.name, args)
 
         self.run_hook("job_start")
@@ -217,7 +221,7 @@ class Pipeline:
         #
         # exception handling is done at cli level for now
         # maybe some specific exception handling may fit here?
-        last_output = job.execute(*[self.inputs[i] for i in args])
+        last_output = job.execute(*[self.inputs[i] for i in args], **job.params)
         logging.debug("%s run successfully", job.name)
         logging.debug(
             "%s returned %s",
@@ -315,6 +319,7 @@ class Pipeline:
             config = {}
 
         # config shorthand, just another input
-        self.inputs.config = AttrDict(config)
+        if config:
+            self.inputs.config.update(config)
 
         self.timed("pipeline", self.name, self._run, _update_object=self)

@@ -6,7 +6,7 @@ import os
 import re
 import types
 from collections import defaultdict
-from types import MethodType
+from types import MethodType, FunctionType
 
 import yaml
 
@@ -80,7 +80,7 @@ class ConfigParser:
         "config",
     }  # TODO add generic config directly using "config"
     # Auxiliary fields, not used for steps definition
-    config_fields = valid_fields - {"steps"}
+    config_fields = valid_fields - {"steps", "config"}
 
     def __init__(self, pipeline_name, path="./", pipelines_file="pipelines.yml"):
         self.pipeline_name = pipeline_name
@@ -145,7 +145,7 @@ class ConfigParser:
         logging.debug("Found module %s", module)
         return module
 
-    def build_job_class(self, step):  # pylint: disable=no-self-use
+    def build_job_class(self, step, params):  # pylint: disable=no-self-use
         """
         Create Job given pipeline and step name
         """
@@ -165,21 +165,30 @@ class ConfigParser:
         # if there's none try loading a function from module
         try:
             job = getattr(module, step)
+            job.params = params
             logging.debug("Using Job object %s from %s", step, module)
-            return job
         except AttributeError:
             inner_fn = getattr(module, func_name)
             logging.debug('Using function "%s" from %s', func_name, module)
 
             # Writing the execute function to use the loaded function and making it a bound method
             # of a new created Job subclass. This is black magic.
-            params = list(inspect.signature(inner_fn).parameters.keys())
-            func_body = f"""def execute (self, {','.join(params)}):
-                        return inner_fn({','.join(params)})
+
+            # get args and kwargs from inner_fn
+            args = list(inspect.signature(inner_fn).parameters.keys())
+            full_args = map(str, inspect.signature(inner_fn).parameters.values())
+            inner_args = map('='.join, zip(args, args))
+
+            func_body = f"""def execute (self, {', '.join(full_args)}):
+                        return inner_fn({','.join(inner_args)})
                         """
-            # logging.debug('Function code: %s', func_body)
+            #logging.debug('Function code: %s', func_body)
             step_code = compile(func_body, step, "exec")
-            step_func = types.FunctionType(step_code.co_consts[0], locals(), step)
+            #exec(step_code)
+
+            arg_spec = inspect.getfullargspec(inner_fn)
+            position = len(arg_spec.defaults) if arg_spec.defaults else 0
+            execute = types.FunctionType(step_code.co_consts[position], locals(), step, arg_spec.defaults)
 
             # class execution namespace
             def clsexec(namespace):
@@ -198,15 +207,34 @@ class ConfigParser:
             new_job_class = types.new_class(
                 step, bases=(ConcreteJob,), exec_body=clsexec
             )
-            new_job_class.execute = MethodType(step_func, new_job_class)
+            new_job_class.execute = MethodType(execute, new_job_class)
             # logging.debug(inspect.signature(new_job_class.execute))
             new_job_class = Job.register(new_job_class)
-        return new_job_class
+
+            # assign parameters and assign job to return
+            new_job_class.params = params
+            job = new_job_class
+
+        # check for invalid kwargs
+        arg_spec = inspect.getfullargspec(job.execute)
+        if arg_spec.defaults:
+            kwargs = arg_spec.args[-len(arg_spec.defaults):]
+        else:
+            kwargs = []
+        for single_param in params:
+            if single_param not in kwargs:
+                raise ConfigurationError(
+                    f'Job {step} does not take a "{single_param}" argument'
+                )
+
+        return job
 
     def build_pipeline(self, pipeline_cfg, inputs=None, outputs=None, hooks=None):
         """
         Creates pipeline from pipeline and config definition dicts
         """
+
+        params_mapping = {}
 
         def make_dag(step_list):
             """
@@ -221,6 +249,7 @@ class ConfigParser:
                     after = [after]
 
                 dag[step["run"]] = set(after)
+                params_mapping[step["run"]] = step.get("with", {})
             return dag
 
         steps = make_dag(pipeline_cfg["steps"])
@@ -238,7 +267,9 @@ class ConfigParser:
         # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [self.build_job_class(step) for step in ordered_steps]
+        jobs = [
+            self.build_job_class(step, params_mapping[step]) for step in ordered_steps
+        ]
 
         if not hooks:
             hooks = {}
@@ -282,7 +313,7 @@ class ConfigParser:
         logging.debug("Created input adapter %s", input_adapter)
         return input_adapter, expose_list
 
-    def build_inputs(self, cfg_inputs):
+    def build_inputs(self, cfg_inputs, config=None):
         """
         Sets up inputs from `inputs` and `expose` fields in YAML files
         """
@@ -296,7 +327,7 @@ class ConfigParser:
             sources.add(adapter)
             exposed[adapter.__class__.__name__] = exposed_list
 
-        inputs = Inputs(sources=sources)
+        inputs = Inputs(sources=sources, config=config)
 
         for name, expose_dict in exposed.items():
             for to_expose in expose_dict:
@@ -402,14 +433,16 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         if not skip_validation:
             self.do_validation(pipelines_yaml)
 
-        # Check if requested pipeline is in config and get only its config
+        # Check if requested pipeline is in definitions and get only its definitions
         if self.pipeline_name not in pipelines_yaml:
             raise MissingPipeline(self.pipeline_name)
         pipeline_cfg = pipelines_yaml[self.pipeline_name]
 
-        # read global config
+        # read global definitions
+        global_config = {} # used for `config` tag
         try:
             cfg = pipelines_yaml.pop("+all")
+            global_config = cfg.pop('config')
         except KeyError:
             logging.debug("'+all' not found: no global configuration defined.")
             cfg = {}
@@ -417,9 +450,9 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         # make a defaultdict to simplify missing fields handling
         cfg = defaultdict(list, cfg)
 
-        logging.debug("Starting config merge")
-        logging.debug("Pipeline config: %s", pipeline_cfg)
-        logging.debug("Global config: %s", cfg)
+        logging.debug("Starting definitions merge")
+        logging.debug("Pipeline definitions: %s", pipeline_cfg)
+        logging.debug("Global definitions: %s", cfg)
 
         # overwrite global with pipeline specific
         for field in ConfigParser.config_fields:
@@ -429,14 +462,17 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
                 pipeline_cfg[field] if field in pipeline_cfg else "missing",
             )
             logging.debug("global field: %s", cfg[field] if field in cfg else "missing")
-            # actual configuration merging
+            # actual definitions merging
             cfg[field] += pipeline_cfg.get(field, [])
             logging.debug("merged field: %s", cfg[field])
 
-        logging.debug("Merged pipeline config: %s", cfg)
+        logging.debug("Merged pipeline definitions: %s", cfg)
+
+        pipeline_config = pipeline_cfg.get('config', {})
+        global_config.update(pipeline_config)
 
         # Building objects
-        inputs = self.build_inputs(cfg["inputs"])
+        inputs = self.build_inputs(cfg["inputs"], global_config)
         outputs = self.build_outputs(cfg["outputs"])
         hooks = self.build_hooks(cfg["hooks"])
         pipeline = self.build_pipeline(

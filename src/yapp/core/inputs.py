@@ -34,6 +34,12 @@ class Inputs(dict):
                 return self.sources[source][name]
             return super().__getitem__(key)
         except KeyError as error:
+            # allow accessing config from jobs
+            # not sure if this will remain or not (for sure not here)
+            # I didn't add self['config'] in __init__ to keep the right length
+            if key=='config':
+                return self.config
+
             logging.debug('%s Trying to load missing input "%s"', self.__repr__(), key)
             raise KeyError(f'Trying to load missing input "{key}"') from error
 

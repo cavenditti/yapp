@@ -136,6 +136,10 @@ pipeline_schema = {
             "schema": "hook",
         },
     },
+    "config": {
+        "required": False,
+        "type": "dict",
+    },
 }
 
 # used for special `+all` field

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import final
 
 
 class Job(ABC):
@@ -8,7 +9,9 @@ class Job(ABC):
 
     started_at = None
     finished_at = None
+    params = {}
 
+    @final
     def __init__(self, pipeline):
         self.pipeline = pipeline
 
@@ -19,6 +22,7 @@ class Job(ABC):
         """
         return self.__class__.__name__
 
+    @final
     @property
     def completed(self):
         """
@@ -30,11 +34,12 @@ class Job(ABC):
         return f"<yapp job {self.name}>"
 
     @abstractmethod
-    def execute(self, *inputs):
+    def execute(self, *inputs, **params):
         """
         Job entrypoint
         """
 
+    @final
     @property
     def config(self):
         """
