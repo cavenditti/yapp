@@ -40,6 +40,7 @@ class Pipeline:
         "pipeline_finish",
         "job_start",
         "job_finish",
+        "job_fail",
     ]
 
     started_at = None
@@ -98,6 +99,7 @@ class Pipeline:
         self.outputs = enforce_list(outputs)
         self.save_results = []
         self.monitor = monitor if monitor else Monitor()
+        self.error = None
         logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
 
         # hooks
@@ -116,7 +118,7 @@ class Pipeline:
             # If monitor object has it, use the method
             if hasattr(monitor, hook_name) and callable(getattr(monitor, hook_name)):
                 new_hooks.append(getattr(monitor, hook_name))
-                logging.debug('Adding %s from monitor: %s', hook_name, monitor)
+                logging.debug("Adding %s from monitor: %s", hook_name, monitor)
             setattr(self, hook_name, new_hooks)
 
         # current job if any
@@ -217,42 +219,50 @@ class Pipeline:
 
         self.run_hook("job_start")
 
-        # call execute with right inputs
-        #
-        # exception handling is done at cli level for now
-        # maybe some specific exception handling may fit here?
-        last_output = job.execute(*[self.inputs[i] for i in args], **job.params)
-        logging.debug("%s run successfully", job.name)
-        logging.debug(
-            "%s returned %s",
-            job.name,
-            list(last_output.keys()) if isinstance(last_output, dict) else last_output,
-        )
-
-        self.run_hook("job_finish")
-
-        # save output and merge into inputs for next steps
-        if isinstance(last_output, dict):
-            logging.debug(
-                "saving last_output: %s len %s",
-                type(last_output),
-                len(last_output) if last_output is not None else "None",
-            )
-            for key in last_output:
-                self.save_output(key, last_output[key])
-        else:
-            if last_output is None:
-                logging.warning("> %s returned None", job.name)
-            # save using job name
-            self.save_output(job.name, last_output)
-            # replace last_output with dict to merge into inputs
-            last_output = {job.name: last_output}
-        # merge into inputs
         try:
-            self.inputs.update(last_output)
-        except (TypeError, ValueError):
-            logging.warning("> Cannot merge output to inputs for job %s", job.name)
-        logging.info("Done saving %s outputs", job.name)
+            # call execute with right inputs
+            last_output = job.execute(*[self.inputs[i] for i in args], **job.params)
+            logging.debug("%s run successfully", job.name)
+            logging.debug(
+                "%s returned %s",
+                job.name,
+                list(last_output.keys())
+                if isinstance(last_output, dict)
+                else last_output,
+            )
+
+            self.run_hook("job_finish")
+
+            # save output and merge into inputs for next steps
+            if isinstance(last_output, dict):
+                logging.debug(
+                    "saving last_output: %s len %s",
+                    type(last_output),
+                    len(last_output) if last_output is not None else "None",
+                )
+                for key in last_output:
+                    self.save_output(key, last_output[key])
+            else:
+                if last_output is None:
+                    logging.warning("> %s returned None", job.name)
+                # save using job name
+                self.save_output(job.name, last_output)
+                # replace last_output with dict to merge into inputs
+                last_output = {job.name: last_output}
+            # merge into inputs
+            try:
+                self.inputs.update(last_output)
+            except (TypeError, ValueError):
+                logging.warning("> Cannot merge output to inputs for job %s", job.name)
+            logging.info("Done saving %s outputs", job.name)
+
+        except Exception as error:
+            self.error = error
+            logging.error("Job %s failed", job.name)
+            # Not sure yet if keeping the exception call also here
+            # logging.exception('Job failed')
+            self.run_hook("job_fail")
+            raise error
 
     def save_output(self, name, data, results=False):
         """Save data to each output adapter
