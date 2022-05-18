@@ -1,7 +1,7 @@
 import inspect
 import logging
 from datetime import datetime
-from typing import Sequence, Set
+from typing import Sequence, Set, Union
 
 from .inputs import Inputs
 from .job import Job
@@ -52,12 +52,14 @@ class Pipeline:
         self,
         job_list: Sequence[type[Job]],
         name: str = "",
-        inputs: Inputs | None = None,
-        outputs: Sequence[type[OutputAdapter]]
-        | Set[type[OutputAdapter]]
-        | type[OutputAdapter]
-        | None = None,
-        monitor: Monitor | None = None,
+        inputs: Union[Inputs, None] = None,
+        outputs: Union[
+            Sequence[type[OutputAdapter]],
+            Set[type[OutputAdapter]],
+            type[OutputAdapter],
+            None,
+        ] = None,
+        monitor: Union[Monitor, None] = None,
         **hooks,
     ):
         """__init__.
@@ -299,7 +301,7 @@ class Pipeline:
 
     def __call__(
         self,
-        save_results: Sequence[str] | None = None,
+        save_results: Union[Sequence[str], None] = None,
     ):
         """Pipeline entrypoint
 
