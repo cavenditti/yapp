@@ -289,13 +289,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#planned-features-and-changes" class="md-nav__link">
-    Planned features and changes:
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
     Example
   </a>
@@ -405,7 +398,7 @@ then run one at the time (even if it may be possible to run them in parallel, th
 willingly design choice).</p>
 <p>Pipelines can have hooks to perform specific task before or after each task (such as updating some
 kind of status monitor)</p>
-<p>For a complete overview on how to define pipelines se the <a href="https://github.com/cavenditti/yapp/wiki/pipelines.yml">documentation in the wiki.</a></p>
+<p>For a complete overview on how to define pipelines se the <a href="configuration/">Configuration page</a>.</p>
 <p>You can then run your pipeline with <code>yapp [pipeline name]</code>.</p>
 <h2 id="the-yapp-command">The <code>yapp</code> command</h2>
 <p>You can run a pipeline using the <code>yapp</code> command:
@@ -419,20 +412,6 @@ It searches in, in order:</p>
 <li>yapp built-in modules</li>
 </ol>
 <p>The first two are relative to the current working directory or to the supplied using <code>path</code> or <code>-p</code></p>
-<h2 id="planned-features-and-changes">Planned features and changes:</h2>
-<ul>
-<li>new detailed pipelines.yml specification</li>
-<li>A good and working example</li>
-<li>Better comprehensive docstrings</li>
-<li>Better tests</li>
-<li>Pipeline status monitor class with an example</li>
-<li>Allow importing from Jupyter notebooks</li>
-<li>Inputs aliases</li>
-<li>Consider permitting repeted tasks in a single pipeline (can this be useful?)</li>
-<li>For each step, keep track of the inputs required in future steps. So that unneeded ones can be
-   removed from memory</li>
-<li>Graph data flow between jobs</li>
-</ul>
 <h2 id="example">Example</h2>
 <div class="highlight"><span class="filename">Code Structure</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>example_project/
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    ├──my_pipeline/             # pipeline directory
@@ -446,16 +425,17 @@ It searches in, in order:</p>
 </code></pre></div>
 <div class="highlight"><span class="filename">pipelines.yml</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">my_pipeline</span><span class="p">:</span><span class="w">                    </span><span class="c1"># define a new pipeline</span><span class="w"></span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">inputs</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">file.CsvInput</span><span class="p">:</span><span class="w">            </span><span class="c1"># use input from CSV files</span><span class="w"></span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">        </span><span class="nt">directory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;./data&quot;</span><span class="w"></span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">expose</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">file.CsvInput</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;raw.csv&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">raw_data</span><span class="w">     </span><span class="c1"># Read &quot;raw.csv&quot; and use it as the raw_data input</span><span class="w"></span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file.CsvInput</span><span class="w">       </span><span class="c1"># use input from CSV files</span><span class="w"></span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">wih</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">        </span><span class="nt">directory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;./data&quot;</span><span class="w"></span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">expose</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">use</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;raw.csv&quot;</span><span class="w">        </span><span class="c1"># Read &quot;raw.csv&quot;…</span><span class="w"></span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">          </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">raw_data</span><span class="w">          </span><span class="c1"># …and use it as the raw_data input</span><span class="w"></span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">steps</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">MainTask</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">AnotherTask</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MainTask</span><span class="w">     </span><span class="c1"># AnotherTask must be run after MainTask</span><span class="w"></span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MainTask</span><span class="w"></span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AnotherTask</span><span class="w"></span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MainTask</span><span class="w">           </span><span class="c1"># AnotherTask must run only after MainTask</span><span class="w"></span>
 </code></pre></div>
 
               

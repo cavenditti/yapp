@@ -312,13 +312,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#expose" class="md-nav__link">
-    expose
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#hooks" class="md-nav__link">
     hooks
   </a>
@@ -407,7 +400,8 @@
 
 
 <h1 id="configuration">Configuration</h1>
-<p>Configuraiton is done using a <code>pipelines.yml</code> file.</p>
+<p>Configuration is done using a YAML file, <code>pipelines.yml</code>.
+Yapp automatically searches for it inside current working directory or in the specified path</p>
 <p>Top level keys are names of pipelines or <code>+all</code>, used to define a global configuration.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -417,54 +411,80 @@
 <p class="admonition-title">Note</p>
 <p>I wanted to write down a proper YAML schema at first but ended up with this quick notation,
 mainly 'cause I'm lazy.</p>
-<p>Every tag starting with "$" is a generic placeholder, which type is later specified.</p>
+<p>Every tag enclosed in "&lt; &gt;" is a generic placeholder, which type is later specified.</p>
 </div>
 <div class="highlight"><span class="filename">version 0.1.x</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">$pipeline</span><span class="p">:</span><span class="w"></span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">inputs</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$adapter</span><span class="w"></span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">outputs</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$adapter</span><span class="w"></span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">expose</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$expose_map</span><span class="w"></span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="nt">on_pipeline_start</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$hook</span><span class="w"></span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="nt">on_job_start</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$hook</span><span class="w"></span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nt">on_job_finish</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$hook</span><span class="w"></span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nt">on_pipeline_finish</span><span class="p">:</span><span class="w"></span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$hook</span><span class="w"></span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span><span class="w"> </span><span class="c1"># required</span><span class="w"></span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">$step</span><span class="w"></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;adapter&gt;</span><span class="w"></span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">          </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;params&gt;</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">          </span><span class="nt">expose</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">use</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;source&gt;</span><span class="w"></span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">              </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;input(s) name(s)&gt;</span><span class="w"></span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">outputs</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;adapter&gt;</span><span class="w"></span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">          </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;params&gt;</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span><span class="w"> </span><span class="c1"># optional</span><span class="w"></span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;hook&gt;</span><span class="w"></span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">          </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pipeline_start</span><span class="w"></span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;hook&gt;</span><span class="w"></span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">          </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">job_start</span><span class="w"></span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;hook&gt;</span><span class="w"></span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">          </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">job_finish</span><span class="w"></span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;hook&gt;</span><span class="w"></span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">          </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pipeline_finish</span><span class="w"></span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span><span class="w"> </span><span class="c1"># required</span><span class="w"></span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;step&gt;</span><span class="w"></span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">          </span><span class="nt">after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;step&gt;</span><span class="w"></span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">          </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;params&gt;</span><span class="w"></span>
 </code></pre></div>
 <ul>
-<li><code>$adapter</code> : <code>str</code> or <code>dict</code> with the first key used as name and the value ignored, the others are
-  passed as arguments to __init__</li>
-<li><code>$hook</code> : <code>str</code></li>
-<li><code>$expose_map</code> : <code>dict</code> with a single pair <code>str</code>, [list of <code>dict</code> with a single <code>str</code> key-value pair]</li>
-<li><code>$step</code> : <code>str</code> or <code>dict</code> with a single <code>str</code> key-value pair, or a sigle <code>str</code>:<code>list</code> pair</li>
+<li><code>&lt;adapter&gt;</code> : <code>str</code> referring to the InputAdapter class</li>
+<li><code>&lt;params&gt;</code>: <code>dict</code> with the args to be passed as arguments to __init__</li>
+<li><code>&lt;hook&gt;</code> : <code>str</code> referring to the hook function</li>
+<li><code>&lt;source&gt;</code> : <code>str</code> containing the key to pass to the <code>get</code> method</li>
+<li><code>&lt;step&gt;</code> : <code>str</code> referring to the Job class or function for the job</li>
 </ul>
-<p><code>str</code> used as <code>$adapter</code>, <code>$hook</code> and <code>step</code> should be valid Python module strings.</p>
+<p><code>str</code> used as <code>&lt;adapter&gt;</code>, <code>&lt;hook&gt;</code> and <code>&lt;step&gt;</code> should be valid Python module strings.</p>
 <h2 id="pipeline-fields">Pipeline fields</h2>
 <p>A pipeline <strong>can</strong> specify the following attributes, the only strictly required is <code>steps</code>.</p>
-<h3 id="steps"><code>steps</code></h3>
+<h3 id="steps"><strong><code>steps</code></strong></h3>
 <p>Used to define the jobs that make up the pipeline and their dependencies.</p>
 <p>Contains a list, each element represents a Job and its dependencies.</p>
-<h3 id="inputs"><code>inputs</code></h3>
+<p><strong>For each element the following fields are valid:</strong></p>
+<ul>
+<li><code>run</code></li>
+<li><code>after</code></li>
+<li><code>with</code></li>
+</ul>
+<h3 id="inputs"><strong><code>inputs</code></strong></h3>
 <p>Used to define input sources.</p>
-<p>Contains a list, each element represents an InputAdapter and its required arguments.</p>
-<h3 id="outputs"><code>outputs</code></h3>
+<p>Contains a list, each element represents an InputAdapter and its required arguments.
+Also Contains a list of inputs to be exposed from that InputAdapter object defined.</p>
+<p><strong>For each element the following fields are valid:</strong></p>
+<ul>
+<li><code>from</code></li>
+<li><code>with</code></li>
+<li><code>expose</code></li>
+<li><code>use</code></li>
+<li><code>as</code></li>
+</ul>
+<h3 id="outputs"><strong><code>outputs</code></strong></h3>
 <p>Used to define outputs to write results to.</p>
 <p>Contains a list, each element represents an OutputAdapter and its required arguments.</p>
-<h3 id="expose"><code>expose</code></h3>
-<p>Used to define aliases for inputs.</p>
-<p>Contains a list, each element represents a list of inputs to be exposed from a source.</p>
-<h3 id="hooks"><code>hooks</code></h3>
+<p><strong>For each element the following fields are valid:</strong></p>
+<ul>
+<li><code>to</code></li>
+<li><code>with</code></li>
+</ul>
+<h3 id="hooks"><strong><code>hooks</code></strong></h3>
 <p>Used to define the hooks to perform at specific events.</p>
-<p>Contains a dict, with the keys being the possible events that trigger a hook. For each key a list of
-functions to use as hooks can be specified. Every event key is optional.</p>
+<p>Contains a list, each element represents a hook.</p>
+<p><strong>For each element the following fields are valid:</strong></p>
+<ul>
+<li><code>run</code></li>
+<li><code>on</code></li>
+</ul>
 <h2 id="special-types">Special types</h2>
 <p>Types defined by yapp that can be used in <code>pipelines.yml</code>:</p>
 <h3 id="env"><code>!env</code></h3>
