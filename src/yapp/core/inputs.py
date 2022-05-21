@@ -32,6 +32,8 @@ class Inputs(dict):
             if key in self.exposed:
                 source, name = self.exposed[key]
                 return self.sources[source][name]
+            elif key == '__last_output':
+                return self.__last_output
             return super().__getitem__(key)
         except KeyError as error:
             # allow accessing config from jobs
@@ -54,12 +56,16 @@ class Inputs(dict):
             self.exposed.update(other.exposed)
         super().update(other, **kwargs)
 
+    def merge_output(self, last_output: dict):
+        self.__last_output = last_output
+        self.update(last_output)
+
     def __or__(self, _):
         raise NotImplementedError
 
     def register(self, name: str, adapter):
         """
-        New input adapter (just a new Item)
+        New input adapter (just a new dict item)
         """
         self.sources[name] = adapter
         logging.info('Registered new input source: "%s"', name)

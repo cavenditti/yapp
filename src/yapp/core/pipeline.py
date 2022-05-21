@@ -253,7 +253,7 @@ class Pipeline:
                 last_output = {job.name: last_output}
             # merge into inputs
             try:
-                self.inputs.update(last_output)
+                self.inputs.merge_output(last_output)
             except (TypeError, ValueError):
                 logging.warning("> Cannot merge output to inputs for job %s", job.name)
             logging.info("Done saving %s outputs", job.name)
