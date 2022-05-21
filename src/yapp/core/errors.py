@@ -32,7 +32,7 @@ class MissingConfiguration(YappFatalError):
     exit_code = 2
 
     def log(self):
-        logging.error("Missing configuration (is pipelines.yml empty?)")
+        logging.error("Could not find pipelines definition file %s", self.args[0])
 
 
 class EmptyConfiguration(YappFatalError):
@@ -96,3 +96,14 @@ class ConfigurationError(YappFatalError):
 
     def log(self):
         logging.error(self.msg)
+
+
+class TagConstructorError(YappFatalError):
+    """
+    Exception raised when a tag constructor cannot be found
+    """
+
+    exit_code = 8
+
+    def log(self):
+        logging.error(self.args[0])

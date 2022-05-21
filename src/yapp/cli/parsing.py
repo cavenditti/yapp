@@ -10,6 +10,7 @@ from collections import defaultdict
 from types import MethodType
 
 import yaml
+from yaml.constructor import ConstructorError
 
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
@@ -19,6 +20,7 @@ from yapp.core.errors import (
     MissingConfiguration,
     MissingEnv,
     MissingPipeline,
+    TagConstructorError,
 )
 
 
@@ -36,6 +38,7 @@ def env_constructor(loader, node):
         value = loader.construct_scalar(node)
         return os.environ[value]
     except KeyError as error:
+        logging.exception(error)
         raise MissingEnv(error.args[0]) from None
 
 
@@ -62,7 +65,9 @@ def yaml_read(path):
             parsed = yaml.full_load(file)
         return parsed
     except FileNotFoundError:
-        raise MissingConfiguration() from None
+        raise MissingConfiguration(path) from FileNotFoundError
+    except ConstructorError as error:
+        raise TagConstructorError(error) from error
 
 
 class ConfigParser:
