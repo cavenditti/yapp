@@ -50,7 +50,7 @@ class Pipeline:
 
     def __init__(
         self,
-        job_list: Sequence[type[Job]],
+        job_list: Sequence[Job],
         name: str = "",
         inputs: Union[Inputs, None] = None,
         outputs: Union[
@@ -66,7 +66,7 @@ class Pipeline:
 
         Args:
             job_list:
-                List of Jobs classes to run (in correct order) inside the pipeline
+                List of Jobs to run (in correct order) inside the pipeline
 
             name:
                 Pipeline name
@@ -93,7 +93,7 @@ class Pipeline:
         logging.debug(
             "Jobs for %s: %s",
             self.name,
-            " -> ".join([job.__name__ for job in self.job_list]),
+            " -> ".join([job.name for job in self.job_list]),
         )
 
         # inputs and outputs
@@ -130,6 +130,11 @@ class Pipeline:
     def config(self):
         """Shortcut for configuration from inputs"""
         return self.inputs.config
+
+    @property
+    def last_output(self):
+        """Shortcut for last_output from inputs"""
+        return self.inputs.last_output
 
     @property
     def job_name(self):
@@ -285,13 +290,10 @@ class Pipeline:
         """Runs all Pipeline's jobs"""
         self.run_hook("pipeline_start")
 
-        for job_class in self.job_list:
-            logging.debug('Instantiating new job from "%s"', job_class)
-            job_obj = job_class(self)
-            self.current_job = job_obj
-            self.timed(
-                "job", job_obj.name, self._run_job, job_obj, _update_object=job_obj
-            )
+        for job in self.job_list:
+            logging.debug('Instantiating new job from "%s"', job)
+            self.current_job = job
+            self.timed("job", job.name, self._run_job, job, _update_object=job)
 
         self.run_hook("pipeline_finish")
 

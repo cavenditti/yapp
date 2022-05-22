@@ -52,31 +52,33 @@ def pipeline_common_asserts(pipeline, *args, **kwargs):
     assert pipeline.outputs is not None
 
     assert pipeline.config is pipeline.inputs.config
+    assert pipeline.last_output is pipeline.inputs.last_output is pipeline.inputs['_last_output']
 
     return pipeline
 
 
 def test_simple_pipeline():
-    pipeline = Pipeline([DummyJob], name="test_pipeline")
+    pipeline = Pipeline([DummyJob()], name="test_pipeline")
     pipeline = pipeline_common_asserts(pipeline)
 
     assert "a_value" in pipeline.inputs
+    assert pipeline.last_output == {"a_value": -15}
 
-    pipeline = Pipeline([DummyJob, DummyJob2], name="test_pipeline")
+    pipeline = Pipeline([DummyJob(), DummyJob2()], name="test_pipeline")
     pipeline = pipeline_common_asserts(pipeline)
 
     assert "another_value" in pipeline.inputs
 
 
 def test_outputadapter(capfd):
-    pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=[DummyOutput])
+    pipeline = Pipeline([DummyJob()], name="test_pipeline", outputs=[DummyOutput])
     pipeline()
     assert pipeline.completed
 
     out, _ = capfd.readouterr()
     assert out.strip() == "a_value -15"
 
-    pipeline = Pipeline([DummyJob, DummyJob2], name="test_pipeline", outputs={DummyOutput})
+    pipeline = Pipeline([DummyJob(), DummyJob2()], name="test_pipeline", outputs={DummyOutput})
     pipeline()
     assert pipeline.completed
 
@@ -90,29 +92,29 @@ def test_outputadapter(capfd):
 # With type hints these don't make much sense anymore
 def test_bad_inputs():
     with pytest.raises(ValueError):
-        pipeline = Pipeline([DummyJob], inputs=22, name="test_pipeline")  # type: ignore
+        pipeline = Pipeline([DummyJob()], inputs=22, name="test_pipeline")  # type: ignore
         pipeline()
 
     # Doesn't raise error
-    pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=DummyOutput)
+    pipeline = Pipeline([DummyJob()], name="test_pipeline", outputs=DummyOutput)
     pipeline()
     assert pipeline.completed
 
 
     with pytest.raises(ValueError):
         # not an Inputs
-        pipeline = Pipeline([DummyJob], name="test_pipeline", inputs=DummyOutput)  # type: ignore
+        pipeline = Pipeline([DummyJob()], name="test_pipeline", inputs=DummyOutput)  # type: ignore
         pipeline()
 
     with pytest.raises(ValueError):
-        pipeline = Pipeline([DummyJob], name="test_pipeline", outputs=[DummyOutput, 123])  # type: ignore
+        pipeline = Pipeline([DummyJob()], name="test_pipeline", outputs=[DummyOutput, 123])  # type: ignore
         pipeline()
 
 
 def test_runtime_inputs_outputs():
     inputs = Inputs(sources=[DummyInput])
     pipeline = Pipeline(
-        [DummyJob], name="test_pipeline", inputs=inputs, outputs=[DummyOutput]
+        [DummyJob()], name="test_pipeline", inputs=inputs, outputs=[DummyOutput]
     )
     pipeline()
     assert pipeline.completed
@@ -127,7 +129,7 @@ def test_hooks():
     checker_hooks_dummy_job = hook_factory(DummyJob, "DummyJob")
 
     pipeline = Pipeline(
-        [DummyJob],
+        [DummyJob()],
         name="test_pipeline",
         on_pipeline_start=[*checker_hooks_none],
         on_job_start=[*checker_hooks_dummy_job],
@@ -152,7 +154,7 @@ class PrintEmptyOutput(OutputAdapter):
 
 
 def test_empty_output(capfd):
-    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline", outputs=[PrintEmptyOutput])
+    pipeline = Pipeline([ReturnsNoneJob()], name="test_pipeline", outputs=[PrintEmptyOutput])
     pipeline()
 
     out, _ = capfd.readouterr()
@@ -160,7 +162,7 @@ def test_empty_output(capfd):
 
 
 def test_ignore_empty_output(capfd):
-    pipeline = Pipeline([ReturnsNoneJob], name="test_pipeline", outputs=[DummyOutput])
+    pipeline = Pipeline([ReturnsNoneJob()], name="test_pipeline", outputs=[DummyOutput])
     pipeline()
     assert pipeline.completed
 
@@ -177,7 +179,7 @@ class PrintFinalOutput(OutputAdapter):
 
 
 def test_save_results(capfd):
-    pipeline = Pipeline([DummyJob], outputs=PrintFinalOutput)
+    pipeline = Pipeline([DummyJob()], outputs=PrintFinalOutput)
     pipeline(save_results="a_value")
     assert pipeline.completed
 
@@ -186,7 +188,7 @@ def test_save_results(capfd):
 
 
 def test_save_results_default(capfd):
-    pipeline = Pipeline([DummyJob], outputs=DummyOutput)
+    pipeline = Pipeline([DummyJob()], outputs=DummyOutput)
     pipeline(save_results="a_value")
     assert pipeline.completed
 

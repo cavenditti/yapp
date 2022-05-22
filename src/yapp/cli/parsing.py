@@ -1,73 +1,26 @@
 import graphlib
-import importlib.util
 import inspect
+import json
 import logging
 import os
-import re
 import types
-from copy import copy
 from collections import defaultdict
 from types import MethodType
 
 import yaml
 from yaml.constructor import ConstructorError
 
+from yapp.cli.extra_tags.env import Env
+from yapp.cli.extra_tags.pipe import Piper
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
 from yapp.core.errors import (
     ConfigurationError,
-    ImportedCodeFailed,
     MissingConfiguration,
-    MissingEnv,
     MissingPipeline,
     TagConstructorError,
 )
-
-
-def camel_to_snake(name):
-    """Returns snake_case version of a CamelCase string"""
-    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
-
-
-def env_constructor(loader, node):
-    """
-    Conctructor to automatically look up for env variables
-    """
-    try:
-        value = loader.construct_scalar(node)
-        return os.environ[value]
-    except KeyError as error:
-        logging.exception(error)
-        raise MissingEnv(error.args[0]) from None
-
-
-def do_nothing_constructor(self, node):
-    """
-    Constructor just returning the string for the node
-    """
-    return self.construct_scalar(node)
-
-
-def yaml_read(path):
-    """
-    Read YAML from path
-    """
-    # use !env VARIABLENAME to refer env variables
-    yaml.add_constructor("!env", env_constructor)
-
-    # Disable awful YAML 1.1 behaviour on booleans-lookalike
-    # If I write 'on' I want 'on', not boolean True
-    yaml.add_constructor("tag:yaml.org,2002:bool", do_nothing_constructor)
-
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            parsed = yaml.full_load(file)
-        return parsed
-    except FileNotFoundError:
-        raise MissingConfiguration(path) from FileNotFoundError
-    except ConstructorError as error:
-        raise TagConstructorError(error) from error
+from yapp.core.utils import load_module
 
 
 class ConfigParser:
@@ -97,71 +50,52 @@ class ConfigParser:
 
         self.base_paths = [os.path.join(path, self.pipeline_name), path]
 
-    def load_module(self, module_name):
+    def yaml_read(self, path):
         """
-        Loads a python module from a .py file or yapp modules
+        Read YAML from path
         """
-        logging.debug(
-            'Requested module to load "%s" for pipeline "%s"',
-            module_name,
-            self.pipeline_name,
-        )
-        # Remove eventual trailing ".py" and split at dots
-        ref = re.sub(r"\.py$", "", module_name).split(".")
-        # same but snake_case
-        ref_snake = copy(ref)
-        ref_snake[-1] = camel_to_snake(ref_snake[-1])
-        # return a possible path for each base_path for both possible names
-        paths = [os.path.join(*[base_path] + ref) for base_path in self.base_paths]
-        paths += [
-            os.path.join(*[base_path] + ref_snake) for base_path in self.base_paths
-        ]
-        # try to load from all possible paths
-        for path in paths:
-            logging.debug("Trying path %s for module %s", path, module_name)
-            try:
-                # Module name may differ from the original name (camel_to_snake)
-                name = os.path.split(path)[-1]
-                spec = importlib.util.spec_from_file_location(name, path + ".py")
-            except FileNotFoundError:
-                continue
+        # use !env VARIABLENAME to refer env variables
+        Env().register()
+        Piper(self.pipeline_name).register()
 
-            if not spec:
-                continue
+        # Disable awful YAML 1.1 behaviour on booleans-lookalike
+        # If I write 'on' I want 'on', not boolean True
+        def do_nothing_constructor(loader, node):
+            """
+            Constructor just returning the string for the node
+            """
+            return loader.construct_scalar(node)
 
-            module = importlib.util.module_from_spec(spec)
+        yaml.add_constructor("tag:yaml.org,2002:bool", do_nothing_constructor)
 
-            try:
-                spec.loader.exec_module(module)
-            except FileNotFoundError:
-                # always continue on FileNotFoundError
-                continue
-            except Exception as error:
-                raise ImportedCodeFailed(module, *error.args) from None
-
-            # if everything goes well stop here and don't try next possibilities
-            break
-        else:
-            # if didn't find it, try from yapp
-            # and if still cannot find it, raise an error
-            try:
-                return importlib.import_module(f"yapp.adapters.{module_name}")
-            except ModuleNotFoundError:
-                raise FileNotFoundError(
-                    f"Cannot locate module {module_name} at {paths}"
-                ) from None
-
-        logging.debug("Found module %s", module)
-        return module
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                parsed = yaml.full_load(file)
+            return parsed
+        except FileNotFoundError:
+            raise MissingConfiguration(path) from FileNotFoundError
+        except ConstructorError as error:
+            raise TagConstructorError(error) from error
 
     def build_new_job_class(
-        self, step, module, func_name, params
+        self, step, module, func_name
     ):  # pylint: disable=no-self-use
         """
         Build new Job subclass at runtime
         """
         inner_fn = getattr(module, func_name)
-        logging.debug('Using function "%s" from %s', func_name, module)
+
+        # Additional check to verify if it's a Job, because of sloppy code in build_job.
+        # Whole code for loading classes and functions needs a refactoring
+        try:
+            if issubclass(inner_fn, Job):
+                return inner_fn
+        except TypeError:
+            pass
+
+        logging.debug(
+            "Using function '%s' from module '%s'", func_name, module.__name__
+        )
 
         # Writing the execute function to use the loaded function and making it a bound method
         # of a new created Job subclass. This is black magic.
@@ -202,26 +136,24 @@ class ConfigParser:
         # logging.debug(inspect.signature(new_job_class.execute))
         new_job_class = Job.register(new_job_class)
 
-        # assign parameters and assign job to return
-        new_job_class.params = params
         return new_job_class
 
-    def build_job(self, step, params):  # pylint: disable=no-self-use
+    def build_job(self, name, step, params):  # pylint: disable=no-self-use
         """
         Create Job given pipeline and step name
         """
-        logging.debug('Building job "%s" for pipeline "%s"', step, self.pipeline_name)
+        logging.debug('Building job "%s" from "%s"', name, step)
 
         func_name = "execute"
         module = None
 
         try:
-            module = self.load_module(step)
+            module = load_module(step, self.base_paths)
         except FileNotFoundError:
             # maybe it's a function in module, try also loading that
             if "." in step:
                 module_name, func_name = step.rsplit(".", 1)
-                module = self.load_module(module_name)
+                module = load_module(module_name, self.base_paths)
 
         if module is None:
             raise FileNotFoundError(f"Cannot load module {module}")
@@ -230,11 +162,12 @@ class ConfigParser:
         # if there's none try with execute function
         # if there's none try loading a function from module
         try:
+            # if job_name is not None it means we entered the previous except
             job = getattr(module, step)
             job.params = params
-            logging.debug("Using Job object %s from %s", step, module)
+            logging.debug("Using Job object %s from module '%s'", step, module.__name__)
         except AttributeError:
-            job = self.build_new_job_class(step, module, func_name, params)
+            job = self.build_new_job_class(step, module, func_name)
 
         # check for invalid kwargs
         arg_spec = inspect.getfullargspec(job.execute)
@@ -242,20 +175,24 @@ class ConfigParser:
             kwargs = arg_spec.args[-len(arg_spec.defaults) :]
         else:
             kwargs = []
+        kwargs += arg_spec.kwonlyargs
         for single_param in params:
-            if single_param not in kwargs:
+            if single_param not in kwargs and single_param not in arg_spec.kwonlyargs:
                 raise ConfigurationError(
                     f'Job {step} does not take a "{single_param}" argument'
                 )
 
-        return job
+        return job(name=name, params=params)
 
-    def build_pipeline(self, pipeline_cfg, inputs=None, outputs=None, hooks=None, monitor=None):
+    def build_pipeline(
+        self, pipeline_cfg, inputs=None, outputs=None, hooks=None, monitor=None
+    ):
         """
         Creates pipeline from pipeline and config definition dicts
         """
 
-        params_mapping = {}
+        # maps "run" and "with" to "name" or "run"
+        steps_mapping = {}
 
         def make_dag(step_list):
             """
@@ -269,8 +206,9 @@ class ConfigParser:
                 if isinstance(after, str):
                     after = [after]
 
-                dag[step["run"]] = set(after)
-                params_mapping[step["run"]] = step.get("with", {})
+                step_name = step["name"] if "name" in step else step["run"]
+                dag[step_name] = set(after)
+                steps_mapping[step_name] = step["run"], step.get("with", {})
             return dag
 
         steps = make_dag(pipeline_cfg["steps"])
@@ -288,13 +226,18 @@ class ConfigParser:
         # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [self.build_job(step, params_mapping[step]) for step in ordered_steps]
+        jobs = [self.build_job(step, *steps_mapping[step]) for step in ordered_steps]
 
         if not hooks:
             hooks = {}
 
         return Pipeline(
-            jobs, name=self.pipeline_name, inputs=inputs, outputs=outputs, monitor=monitor, **hooks
+            jobs,
+            name=self.pipeline_name,
+            inputs=inputs,
+            outputs=outputs,
+            monitor=monitor,
+            **hooks,
         )
 
     def create_adapter(self, adapter_name: str, params: dict):
@@ -309,7 +252,7 @@ class ConfigParser:
             module_name, adapter_name = adapter_name.rsplit(".", 1)
         else:
             module_name = adapter_name
-        module = self.load_module(module_name)
+        module = load_module(module_name, self.base_paths)
         adapter_class = getattr(module, adapter_name)
 
         # instantiate adapter and return it
@@ -390,7 +333,7 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
             )
 
         module_name, func_name = run.rsplit(".", 1)
-        module = self.load_module(module_name)
+        module = load_module(module_name, self.base_paths)
         func = getattr(module, func_name)
         logging.debug(
             "Using function: %s from module %s as %s", func_name, module_name, hook_name
@@ -421,9 +364,9 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         Sets up monitor from `monitor` field in YAML files
         """
         if cfg_monitor:
-            module = self.load_module(cfg_monitor['use'])
-            monitor = getattr(module, cfg_monitor['use'])
-            return monitor(**cfg_monitor['with'])
+            module = load_module(cfg_monitor["use"], self.base_paths)
+            monitor = getattr(module, cfg_monitor["use"])
+            return monitor(**cfg_monitor["with"])
         return None
 
     def do_validation(self, pipelines_yaml: dict):
@@ -454,10 +397,13 @@ Hooks can be one of {Pipeline.VALID_HOOKS}"""
         """
         Reads and parses pipelines.yml, creates a pipeline object
         """
+        logging.info(
+            "Running pipeline %s from %s", self.pipeline_name, self.pipelines_file
+        )
 
         # Read yaml configuration and validate it
-        pipelines_yaml = yaml_read(self.pipelines_file)
-        logging.debug("Loaded YAML: %s", pipelines_yaml)
+        pipelines_yaml = self.yaml_read(self.pipelines_file)
+        logging.debug("Loaded YAML: %s", json.dumps(pipelines_yaml, indent=2))
 
         if not skip_validation:
             self.do_validation(pipelines_yaml)

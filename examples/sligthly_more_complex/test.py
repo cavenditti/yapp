@@ -1,5 +1,5 @@
 import pandas as pd
 
 
-def prova():
+def prova(df):
     return pd.DataFrame()

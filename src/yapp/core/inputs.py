@@ -12,6 +12,7 @@ class Inputs(dict):
         super().__init__(*args, **kwargs)
         self.exposed = {}  # mapping name to source
         self.sources = {}
+        self.last_output = None
         self.config = AttrDict(config)
         if not sources:
             return
@@ -32,8 +33,8 @@ class Inputs(dict):
             if key in self.exposed:
                 source, name = self.exposed[key]
                 return self.sources[source][name]
-            elif key == '__last_output':
-                return self.__last_output
+            if key == "_last_output":
+                return self.last_output
             return super().__getitem__(key)
         except KeyError as error:
             # allow accessing config from jobs
@@ -57,7 +58,10 @@ class Inputs(dict):
         super().update(other, **kwargs)
 
     def merge_output(self, last_output: dict):
-        self.__last_output = last_output
+        """
+        Merge last outputs into inputs but also keep track of them
+        """
+        self.last_output = last_output
         self.update(last_output)
 
     def __or__(self, _):

@@ -99,3 +99,8 @@ sligthly_more_complex:
 
     - run: common.PostProcessor
       after: Ensemble
+
+    - !pipe:
+      run: prova
+      module: test
+      after: common.PostProcessor

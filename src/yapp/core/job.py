@@ -7,20 +7,17 @@ class Job(ABC):
     Job represents a step in our pipeline
     """
 
-    started_at = None
-    finished_at = None
-    params = {}
-
     @final
-    def __init__(self, pipeline):
-        self.pipeline = pipeline
+    def __init__(self, name="", params=None, aliases=None):
+        if not name:
+            name = self.__class__.__name__
+        self.name = name
 
-    @property
-    def name(self):
-        """
-        Helper to return the name of the class
-        """
-        return self.__class__.__name__
+        self.started_at = None
+        self.finished_at = None
+
+        self.aliases = aliases if aliases else {}
+        self.params = params if params else {}
 
     @final
     @property
@@ -40,9 +37,8 @@ class Job(ABC):
         """
 
     @final
-    @property
-    def config(self):
+    def alias(self, original, aliased):
         """
-        Shortcut for self.pipeline.config
+        Alias an input
         """
-        return self.pipeline.config
+        self.aliases[aliased] = original
