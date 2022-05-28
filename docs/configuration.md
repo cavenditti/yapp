@@ -103,8 +103,9 @@ Contains a list, each element represents a hook.
 - `on`
 
 
-## Special types
-Types defined by yapp that can be used in `pipelines.yml`:
+## Special tags
+Tags defined by yapp that can be used in `pipelines.yml`, these only alter the structure of the
+configuration file: they are parsed first, then the resulting configuration is parsed as usual.
 
 ### `!env`
 Reads an environment variable.
@@ -115,3 +116,36 @@ following:
 `!env DATA_DIR`
 
 is automatically replaced with `../data/latest`.
+
+### `!pipe`
+Can only be used as a `step`.
+
+Convinience shortcut for passing the first output of the last step to a function and return the
+result.
+
+It uses yapp.cli.extra_tags.pipe.Pipe, which takes the function and it's kwargs
+
+It converts this:
+
+``` yaml
+- !pipe:
+  run: prova					# name of the function
+  module: test					# where to search the function
+  after: common.PostProcessor
+```
+
+To something like this:
+
+``` yaml
+- run: yapp.cli.extra_tags.pipe.Pipe,
+  name: _prova_1, # unique name for the step
+  with: {
+    fn: prova,
+    base_paths: [
+	  # a list of search path, for internal use
+    ],
+    module: test
+  },
+  after: common.PostProcessor
+```
+
