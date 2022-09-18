@@ -99,3 +99,42 @@ sligthly_more_complex:
 
     - run: common.PostProcessor
       after: Ensemble
+
+
+
+ray_parallel:
+  inputs:
+    - from: file.CsvInput
+      with:
+        directory: "./data"
+    - from: pandas.read_csv
+      expose:
+        - use: "./data/a_csv_file.csv"
+          as: example_csv
+
+  hooks:
+    - run: common.UselessHook.whatever
+      on: job_start
+    - run: common.UselessHook.whatever
+      on: pipeline_start
+
+  steps:
+    - run: common.PreProcessor
+      name: preprocessor_1
+    - run: common.PreProcessor
+      name: preprocessor_2
+    - run: common.PreProcessor
+      name: preprocessor_3
+    - run: MainTask
+      with:
+        p: 'whatever'
+      after: preprocessor_2
+    - run: MainTask
+      name: maintask_2
+      with:
+        p: 'whatever'
+      after: preprocessor_3
+
+  config:
+    pippo: 44
+    franco: 9

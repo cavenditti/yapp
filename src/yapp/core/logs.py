@@ -3,7 +3,7 @@ import sys
 import traceback
 from io import StringIO
 
-from yapp import Pipeline
+#from .pipeline import Pipeline
 
 OK = 24
 PRINT = 22
@@ -36,6 +36,12 @@ def add_logging_level(level_name, level_num, method_name=None):
     5
 
     """
+
+    # check if we already added the level (ray reuses the environments)
+    if level_name in logging._nameToLevel.keys():
+        logging.debug("Skipping already existing level_name %s", level_name)
+        return
+
     if not method_name:
         method_name = level_name.lower()
 
@@ -149,36 +155,42 @@ class LogFormatter(logging.Formatter):
         return f"{head} {msg.lstrip()}\n"
 
 
-def setup_logging(loglevel, color=False, logfile="", show_lineno=False):
-    """
-    Setup logging for yapp
-    """
+class LogConfig:
+    loglevel = logging.INFO
+    color = False
+    logfile = None
+    show_lineno = False
 
-    logger = logging.getLogger()
+    def setup_logging(self):
+        """
+        Setup logging for yapp
+        """
 
-    add_logging_level("OK", OK)
-    add_logging_level("PRINT", PRINT)
+        logger = logging.getLogger()
 
-    logger.setLevel(logging.DEBUG)
+        add_logging_level("OK", OK)
+        add_logging_level("PRINT", PRINT)
 
-    handlers = [(logging.StreamHandler(), color)]
-    if logfile:
-        handlers.append((logging.FileHandler(logfile), False))
+        logger.setLevel(logging.DEBUG)
 
-    for pair in handlers:
-        handler, color = pair
-        # An ugly hack to prevent printing empty lines from print calls (3/3)
-        handler.terminator = ""
-        handler.setLevel(getattr(logging, loglevel))
-        formatter = LogFormatter(color=color, show_lineno=show_lineno)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        handlers = [(logging.StreamHandler(), self.color)]
+        if self.logfile:
+            handlers.append((logging.FileHandler(self.logfile), False))
 
-    # Use custom loglevel for Pipeline success messages
-    Pipeline.OK_LOGLEVEL = OK
+        for pair in handlers:
+            handler, color = pair
+            # An ugly hack to prevent printing empty lines from print calls (3/3)
+            handler.terminator = ""
+            handler.setLevel(getattr(logging, self.loglevel))
+            formatter = LogFormatter(color=color, show_lineno=self.show_lineno)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
 
-    # send print calls from Jobs and Hooks to log.
-    # Even though there are probably better ways of doing this,
-    # I prefer this one because keeps the track of where print is called
-    # the downside is that the prints are messed up and splitted
-    sys.stdout.write = logger.print
+        # Use custom loglevel for Pipeline success messages
+        #Pipeline.OK_LOGLEVEL = OK
+
+        # send print calls from Jobs and Hooks to log.
+        # Even though there are probably better ways of doing this,
+        # I prefer this one because keeps the track of where print is called
+        # the downside is that the prints are messed up and splitted
+        sys.stdout.write = logger.print

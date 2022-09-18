@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import final
+from graphlib import TopologicalSorter
 
 
 class Job(ABC):
@@ -12,15 +13,16 @@ class Job(ABC):
     params = {}
 
     @final
-    def __init__(self, pipeline):
-        self.pipeline = pipeline
+    def __init__(self, pipeline, name=""):
+        self.__name = name if name else self.__class__.__name__
+        #self.pipeline = pipeline
 
     @property
     def name(self):
         """
         Helper to return the name of the class
         """
-        return self.__class__.__name__
+        return self.__name
 
     @final
     @property
@@ -39,6 +41,7 @@ class Job(ABC):
         Job entrypoint
         """
 
+    '''
     @final
     @property
     def config(self):
@@ -46,3 +49,26 @@ class Job(ABC):
         Shortcut for self.pipeline.config
         """
         return self.pipeline.config
+    '''
+
+
+class Jobs(TopologicalSorter):
+    def __init__(self, dag: dict, mapping: dict):
+        """
+        Create a new Jobs dag
+
+        Params:
+            dag: Directed acyclic graph of the jobs
+            mapping: dictionary mapping job names in dag to actual jobs
+        """
+        super().__init__(dag)
+        self.__mapping = mapping
+
+    def get_ready(self):
+        return ((name, self.__mapping[name]) for name in super().get_ready())
+
+    def static_order(self):
+        raise NotImplementedError
+
+    def names(self):
+        return [job.name for job in self.__mapping.values()]

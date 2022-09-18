@@ -13,6 +13,7 @@ import yaml
 
 from yapp.cli.validation import validate
 from yapp.core import Inputs, Job, Pipeline
+from yapp.core.job import Jobs
 from yapp.core.errors import (
     ConfigurationError,
     ImportedCodeFailed,
@@ -250,13 +251,14 @@ class ConfigParser:
         Creates pipeline from pipeline and config definition dicts
         """
 
-        params_mapping = {}
 
         def make_dag(step_list):
             """
             Create DAG dictionary suitable for topological ordering from configuration parsing output
             """
             dag = {}
+            params_mapping = {}
+
             for step in step_list:
                 logging.debug('<steps> parsing "%s"', step)
                 # make strings just like the others
@@ -264,26 +266,37 @@ class ConfigParser:
                 if isinstance(after, str):
                     after = [after]
 
-                dag[step["run"]] = set(after)
-                params_mapping[step["run"]] = step.get("with", {})
-            return dag
+                name = step.get("name", step["run"])  # use "name" and fall back to "run" if missing
+                if name in dag:
+                    raise ConfigurationError("Duplicated job. Maybe you need to specify a name to distinguish identical jobs?")
+                dag[name] = set(after)
+                params_mapping[name] = step
+                params_mapping[name]["with"] = step.get("with", {})
 
-        steps = make_dag(pipeline_cfg["steps"])
+            for deps in dag.values():
+                for dep in deps:
+                    if dep not in dag.keys():
+                        raise ConfigurationError(f'Invalid job dependecy: "{dep}", missing corresponding job')
+
+            return dag, params_mapping
+
+        steps, params_mapping = make_dag(pipeline_cfg["steps"])
+
         logging.debug('Performing topological ordering on steps: "%s"', steps)
-        try:
-            ordered_steps = graphlib.TopologicalSorter(steps).static_order()
-            ordered_steps = list(ordered_steps)
-        except graphlib.CycleError:
-            raise graphlib.CycleError(
-                f"Invalid pipeline definition {self.pipeline_name}: cycle in steps dependencies"
-            ) from None
-        logging.debug("Successfully ordered steps: %s", ordered_steps)
 
         # First step should be None: that is there are no dependencies for first step
         # assert ordered_steps[0] is None
 
         # for each step get the source and load it
-        jobs = [self.build_job(step, params_mapping[step]) for step in ordered_steps]
+        print(steps)
+        print(params_mapping)
+        jobs = Jobs(steps, {step:self.build_job(params_mapping[step]["run"], params_mapping[step]["with"]) for step in steps})
+        try:
+            jobs.prepare()
+        except graphlib.CycleError:
+            raise graphlib.CycleError(
+                f"Invalid pipeline definition {self.pipeline_name}: cycle in steps dependencies"
+            ) from None
 
         if not hooks:
             hooks = {}

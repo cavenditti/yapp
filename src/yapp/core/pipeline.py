@@ -1,12 +1,18 @@
 import inspect
 import logging
 from datetime import datetime
+from time import sleep
 from typing import Sequence, Set, Union
+import warnings
+
+import ray
 
 from .inputs import Inputs
-from .job import Job
+from .job import Jobs
 from .monitor import Monitor
 from .output_adapter import OutputAdapter
+from .logs import LogConfig
+from .logs import OK as OK_LOGLEVEL
 
 
 def enforce_list(value):
@@ -16,6 +22,41 @@ def enforce_list(value):
     if isinstance(value, set):
         return list(value)
     return value if isinstance(value, list) else [value]
+
+
+@ray.remote
+def _run_job(job, job_args, job_kwargs, logconfig):
+    """Execution of a single job"""
+
+    logconfig.setup_logging()
+    logging.info("Running %s", job.name)
+    logging.debug("Running %s with args: %s, kwargs: %s", job.name, job_args, job_kwargs)
+
+    # Get arguments used in the execute function
+    #self.run_hook("job_start")
+
+    try:
+        # call execute with right inputs
+        last_output = job.execute(*job_args, **job_kwargs)
+        logging.debug("%s run successfully", job.name)
+        logging.debug(
+            "%s returned %s",
+            job.name,
+            list(last_output.keys())
+            if isinstance(last_output, dict)
+            else last_output,
+        )
+        return job, last_output
+
+        #self.run_hook("job_finish")
+
+    except Exception as error:
+        #self.error = error
+        logging.error("Job %s failed", job.name)
+        # Not sure yet if keeping the exception call also here
+        # logging.exception('Job failed')
+        #self.run_hook("job_fail")
+        raise error
 
 
 class Pipeline:
@@ -33,8 +74,6 @@ class Pipeline:
             level of nested calls to `timed`, used to enhance logging
     """
 
-    OK_LOGLEVEL = logging.INFO
-
     VALID_HOOKS = [
         "pipeline_start",
         "pipeline_finish",
@@ -50,7 +89,7 @@ class Pipeline:
 
     def __init__(
         self,
-        job_list: Sequence[type[Job]],
+        jobs: Jobs,
         name: str = "",
         inputs: Union[Inputs, None] = None,
         outputs: Union[
@@ -60,13 +99,14 @@ class Pipeline:
             None,
         ] = None,
         monitor: Union[Monitor, None] = None,
+        logconfig: Union[LogConfig, None] = None,
         **hooks,
     ):
         """__init__.
 
         Args:
-            job_list:
-                List of Jobs classes to run (in correct order) inside the pipeline
+            jobs:
+                DAG of Jobs classes to run inside the pipeline
 
             name:
                 Pipeline name
@@ -89,11 +129,11 @@ class Pipeline:
             self.name = self.__class__.__name__
         logging.debug("Creating pipeline %s", self.name)
 
-        self.job_list = job_list
+        self.jobs = jobs
         logging.debug(
             "Jobs for %s: %s",
             self.name,
-            " -> ".join([job.__name__ for job in self.job_list]),
+            self.jobs.names(),
         )
 
         # inputs and outputs
@@ -103,6 +143,8 @@ class Pipeline:
         self.monitor = monitor if monitor else Monitor()
         self.error = None
         logging.debug("Inputs for %s: %s", self.name, repr(self.inputs))
+
+        self.logconfig = logconfig
 
         # hooks
         # Hook names should be checked inside yapp.cli,
@@ -124,19 +166,24 @@ class Pipeline:
             setattr(self, hook_name, new_hooks)
 
         # current job if any
-        self.current_job = None
+        self.current_jobs = []
+
+        logging.info("Starting ray")
+        ray.init()
+
+    def __del__(self):
+        logging.info("Shutting down ray")
+        ray.shutdown()
+
+    @property
+    def job_name(self):
+        warnings.warn("Just returning a dummy name")
+        return "DO NOT USE THIS"
 
     @property
     def config(self):
         """Shortcut for configuration from inputs"""
         return self.inputs.config
-
-    @property
-    def job_name(self):
-        """Shortcut for self.current_job.name which handles no current_job"""
-        if self.current_job:
-            return self.current_job.name
-        return None
 
     @property
     def completed(self):
@@ -194,7 +241,7 @@ class Pipeline:
         out = func(*args, **kwargs)
         end = datetime.now()
         logging.log(
-            Pipeline.OK_LOGLEVEL,
+            OK_LOGLEVEL,
             "%s Completed %s %s (elapsed: %s)",
             prefix,
             typename,
@@ -207,64 +254,6 @@ class Pipeline:
         # Decrease nesting level
         self.__nested_timed_calls -= 1
         return out
-
-    def _run_job(self, job):
-        """Execution of a single job"""
-
-        # Get arguments used in the execute function
-        arg_spec = inspect.getfullargspec(job.execute)
-        if arg_spec.defaults:
-            args = arg_spec.args[1 : -len(arg_spec.defaults)]
-        else:
-            args = arg_spec.args[1:]
-        logging.debug("Required inputs for %s: %s", job.name, args)
-
-        self.run_hook("job_start")
-
-        try:
-            # call execute with right inputs
-            last_output = job.execute(*[self.inputs[i] for i in args], **job.params)
-            logging.debug("%s run successfully", job.name)
-            logging.debug(
-                "%s returned %s",
-                job.name,
-                list(last_output.keys())
-                if isinstance(last_output, dict)
-                else last_output,
-            )
-
-            self.run_hook("job_finish")
-
-            # save output and merge into inputs for next steps
-            if isinstance(last_output, dict):
-                logging.debug(
-                    "saving last_output: %s len %s",
-                    type(last_output),
-                    len(last_output) if last_output is not None else "None",
-                )
-                for key in last_output:
-                    self.save_output(key, last_output[key])
-            else:
-                if last_output is None:
-                    logging.warning("> %s returned None", job.name)
-                # save using job name
-                self.save_output(job.name, last_output)
-                # replace last_output with dict to merge into inputs
-                last_output = {job.name: last_output}
-            # merge into inputs
-            try:
-                self.inputs.update(last_output)
-            except (TypeError, ValueError):
-                logging.warning("> Cannot merge output to inputs for job %s", job.name)
-            logging.info("Done saving %s outputs", job.name)
-
-        except Exception as error:
-            self.error = error
-            logging.error("Job %s failed", job.name)
-            # Not sure yet if keeping the exception call also here
-            # logging.exception('Job failed')
-            self.run_hook("job_fail")
-            raise error
 
     def save_output(self, name, data, results=False):
         """Save data to each output adapter
@@ -285,13 +274,62 @@ class Pipeline:
         """Runs all Pipeline's jobs"""
         self.run_hook("pipeline_start")
 
-        for job_class in self.job_list:
-            logging.debug('Instantiating new job from "%s"', job_class)
-            job_obj = job_class(self)
-            self.current_job = job_obj
-            self.timed(
-                "job", job_obj.name, self._run_job, job_obj, _update_object=job_obj
-            )
+        while self.jobs.is_active():
+            for job_name, job_class in self.jobs.get_ready():
+                logging.debug('Instantiating new job "%s" from "%s"', job_name, job_class)
+
+                job_obj = job_class(self, name=job_name)
+
+                arg_spec = inspect.getfullargspec(job_obj.execute)
+                if arg_spec.defaults:
+                    args = arg_spec.args[1 : -len(arg_spec.defaults)]
+                else:
+                    args = arg_spec.args[1:]
+                logging.debug("Required inputs for %s: %s", job_obj.name, args)
+
+                args, kwargs = [self.inputs[i] for i in args], job_obj.params
+                print(self.logconfig)
+                self.current_jobs.append(_run_job.remote(job_obj, args, kwargs, self.logconfig))
+                #_run_job.remote(job_obj, ray.put(args), ray.put(kwargs))
+
+                #self.current_jobs.remove(job_obj)
+            ready_ref = ray.wait(self.current_jobs)[0]
+            sleep(1)
+
+            if ready_ref:
+                ready_ref = ready_ref[0]
+                self.current_jobs.remove(ready_ref)
+                logging.debug("%s done", ready_ref)
+                job, last_output = ray.get(ready_ref)
+                logging.debug("%s is %s", ready_ref, job.name)
+
+                # save output and merge into inputs for next steps
+                if isinstance(last_output, dict):
+                    logging.debug(
+                        "saving last_output: %s len %s",
+                        type(last_output),
+                        len(last_output) if last_output is not None else "None",
+                    )
+
+                    for key in last_output:
+                        self.save_output(key, last_output[key])
+                else:
+                    if last_output is None:
+                        logging.warning(">%s returned None", job.name)
+                    # save using job name
+                    self.save_output(job.name, last_output)
+                    # replace last_output with dict to merge into inputs
+                    last_output = {job.name: last_output}
+                # merge into inputs
+                try:
+                    self.inputs.update(last_output)
+                except (TypeError, ValueError):
+                    logging.warning(">Cannot merge output to inputs for job %s", job.name)
+                logging.info("Done saving %s outputs", job.name)
+
+                logging.debug("Marked %s as done in DAG", job.name)
+                self.jobs.done(job.name)
+
 
         self.run_hook("pipeline_finish")
 
@@ -301,12 +339,16 @@ class Pipeline:
 
     def __call__(
         self,
+        logconfig: LogConfig,  # FIXME using this argument here is a temporary fix
         save_results: Union[Sequence[str], None] = None,
     ):
         """Pipeline entrypoint
 
         Sets up inputs, outputs and config (if specified) and runs the pipeline
         """
+
+        self.logconfig = logconfig
+
         # Override inputs or outputs if specified
         if save_results:
             self.save_results = enforce_list(save_results)

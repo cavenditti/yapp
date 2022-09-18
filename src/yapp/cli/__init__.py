@@ -7,7 +7,7 @@ import inspect
 import logging
 import sys
 
-from yapp.cli.logs import setup_logging
+from yapp.core.logs import LogConfig
 from yapp.cli.parsing import ConfigParser
 from yapp.core.errors import YappFatalError
 
@@ -81,9 +81,13 @@ def main():
     loglevel = args.loglevel.upper()
 
     show_lineno = loglevel == "DEBUG"
-    setup_logging(
-        loglevel, color=args.color, logfile=args.logfile, show_lineno=show_lineno
-    )
+
+    logconfig = LogConfig()
+    logconfig.loglevel = loglevel
+    logconfig.color = args.color
+    logconfig.logfile = args.logfile
+    logconfig.show_lineno = show_lineno
+    logconfig.setup_logging()
 
     # prepare config parser
     config_parser = ConfigParser(args.pipeline, path=args.path)
@@ -100,15 +104,15 @@ def main():
     # Run the pipeline
     try:
         config_parser.switch_workdir()
-        pipeline()
+        pipeline(logconfig)
     except Exception as error:  # pylint: disable=broad-except
         logging.exception(error)
         logging.debug("pipeline.inputs: %s", pipeline.inputs.__repr__())
         logging.debug("pipeline.outputs: %s", pipeline.outputs)
-        logging.debug("pipeline.job_list: %s", pipeline.job_list)
-        for job in pipeline.job_list:
-            args = inspect.getfullargspec(job.execute).args
-            logging.debug("%s.execute arguments: %s", job, args[1:])
+        #logging.debug("pipeline.job_list: %s", pipeline.job_list)
+        #for job in pipeline.job_list:
+        #   args = inspect.getfullargspec(job.execute).args
+        #   logging.debug("%s.execute arguments: %s", job, args[1:])
         sys.exit(-2)
 
 
