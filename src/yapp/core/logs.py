@@ -161,10 +161,17 @@ class LogConfig:
     logfile = None
     show_lineno = False
 
+    _yapp_logging_ready = False
+
     def setup_logging(self):
         """
         Setup logging for yapp
         """
+
+        # check if we already added the level (ray reuses the environments)
+        if LogConfig._yapp_logging_ready:
+            logging.debug("Logging already configured")
+            return
 
         logger = logging.getLogger()
 
@@ -194,3 +201,5 @@ class LogConfig:
         # I prefer this one because keeps the track of where print is called
         # the downside is that the prints are messed up and splitted
         sys.stdout.write = logger.print
+
+        LogConfig._yapp_logging_ready = True
